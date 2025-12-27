@@ -125,7 +125,7 @@ const updateScore = () => {
 };
 
 const updateProgress = () => {
-  const totalBirds = birdOrder.length || BIRDS.length;
+  const totalBirds = BIRDS.length;
   roundProgress.max = totalBirds;
   const currentValue = gameActive ? Math.min(currentBirdIndex + 1, totalBirds) : 0;
   roundProgress.value = currentValue;
@@ -378,9 +378,7 @@ const evaluateRound = () => {
   updateSoundButtons();
   nextButton.disabled = false;
 
-  const nameSummary = nameCorrectThisRound ? "Correct" : "Wrong";
-  const soundSummary = soundCorrectThisRound ? "Correct" : "Wrong";
-  setFeedback(`Round Summary: Step 1 (Name) ${nameSummary} | Step 2 (Sound) ${soundSummary}`);
+  setFeedback("");
 };
 
 const selectName = (index) => {

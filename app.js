@@ -171,6 +171,10 @@ const updateHardModeUI = () => {
   }
 };
 
+const updateHardModeToggleState = () => {
+  hardModeToggle.disabled = gameActive;
+};
+
 const updateHardModeInputState = () => {
   if (!hardModeEnabled) {
     return;
@@ -482,6 +486,7 @@ startButton.addEventListener("click", () => {
   gameActive = true;
   startButton.disabled = true;
   startButton.textContent = "Playing";
+  updateHardModeToggleState();
   birdOrder = shuffle(BIRDS);
   currentBirdIndex = 0;
   startRound();
@@ -517,6 +522,10 @@ resetButton.addEventListener("click", () => {
 });
 
 hardModeToggle.addEventListener("change", (event) => {
+  if (gameActive) {
+    event.target.checked = hardModeEnabled;
+    return;
+  }
   hardModeEnabled = event.target.checked;
   updateHardModeUI();
   updateHardModeInputState();
@@ -551,4 +560,5 @@ window.addEventListener("keydown", (event) => {
 
 loadProgress();
 updateHardModeUI();
+updateHardModeToggleState();
 updateProgress();

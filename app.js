@@ -52,19 +52,26 @@ const STORAGE_KEYS = {
 
 const startButton = document.getElementById("start-button");
 const resetButton = document.getElementById("reset-button");
+const nextButton = document.getElementById("next-button");
 const birdImage = document.getElementById("bird-image");
-const choices = document.getElementById("choices");
+const nameChoicesEl = document.getElementById("name-choices");
+const soundChoicesEl = document.getElementById("sound-choices");
+const stepSound = document.getElementById("step-sound");
 const feedback = document.getElementById("feedback");
 const scoreEl = document.getElementById("score");
 const totalEl = document.getElementById("total");
-const audio = document.getElementById("bird-audio");
+const audio = new Audio();
 
-let currentOptions = [];
-let currentAnswer = null;
+let nameChoices = [];
+let soundChoices = [];
+let correctBird = null;
+let selectedName = null;
+let selectedSound = null;
 let correctCount = 0;
 let totalCount = 0;
 let gameActive = false;
 let inputLocked = false;
+let roundEvaluated = false;
 
 const shuffle = (array) => {
   const copy = [...array];
@@ -95,63 +102,102 @@ const setFeedback = (message) => {
   feedback.textContent = message;
 };
 
-const playAudio = (bird) => {
+const stopAudio = () => {
   audio.pause();
-  audio.currentTime = 0;
-  audio.innerHTML = "";
+  try {
+    audio.currentTime = 0;
+  } catch (error) {
+    // Ignore invalid state errors when resetting audio.
+  }
+  audio.src = "";
+  try {
+    audio.load();
+  } catch (error) {
+    // Some browsers may not support load on Audio objects.
+  }
+};
 
-  const web4Source = document.createElement("source");
-  web4Source.src = bird.web4;
+const setAudioSources = async (bird) => {
+  audio.src = bird.web4;
+  try {
+    audio.load();
+  } catch (error) {
+    // Ignore load errors.
+  }
 
-  const mp3Source = document.createElement("source");
-  mp3Source.src = bird.mp3;
-  mp3Source.type = "audio/mpeg";
+  try {
+    await audio.play();
+  } catch (error) {
+    audio.src = bird.mp3;
+    try {
+      audio.load();
+    } catch (loadError) {
+      // Ignore load errors.
+    }
+    await audio.play();
+  }
+};
 
-  audio.appendChild(web4Source);
-  audio.appendChild(mp3Source);
-  audio.load();
-
-  audio.play().catch(() => {
+const playAudio = (bird) => {
+  stopAudio();
+  setAudioSources(bird).catch(() => {
     setFeedback("Audio not supported.");
   });
 };
 
-const renderChoices = () => {
-  choices.innerHTML = "";
-  currentOptions.forEach((bird, index) => {
-    const row = document.createElement("div");
-    row.className = "choice";
-    row.setAttribute("role", "listitem");
-
-    const playButton = document.createElement("button");
-    playButton.type = "button";
-    playButton.className = "choice-play";
-    playButton.textContent = "Play";
-    playButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      playAudio(bird);
-    });
-
-    const label = document.createElement("span");
-    label.className = "choice-label";
-    label.textContent = `${index + 1}. ${bird.name}`;
-
-    const selectButton = document.createElement("button");
-    selectButton.type = "button";
-    selectButton.className = "choice-select";
-    selectButton.textContent = "Select";
-    selectButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      handleSelection(index);
-    });
-
-    row.appendChild(playButton);
-    row.appendChild(label);
-    row.appendChild(selectButton);
-    row.addEventListener("click", () => handleSelection(index));
-
-    choices.appendChild(row);
+const updateNameButtons = () => {
+  const buttons = Array.from(nameChoicesEl.querySelectorAll("button"));
+  buttons.forEach((button, index) => {
+    const bird = nameChoices[index];
+    const isSelected = selectedName && bird && selectedName.name === bird.name;
+    button.classList.toggle("is-selected", Boolean(isSelected));
+    if (selectedName) {
+      button.disabled = !isSelected;
+    }
   });
+};
+
+const updateSoundButtons = () => {
+  const buttons = Array.from(soundChoicesEl.querySelectorAll("button"));
+  buttons.forEach((button, index) => {
+    const bird = soundChoices[index];
+    const isSelected = selectedSound && bird && selectedSound.name === bird.name;
+    button.classList.toggle("is-selected", Boolean(isSelected));
+    if (selectedSound) {
+      button.disabled = !isSelected;
+    }
+  });
+};
+
+const renderNameChoices = () => {
+  nameChoicesEl.innerHTML = "";
+  nameChoices.forEach((bird, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "choice-button";
+    button.textContent = bird.name;
+    button.addEventListener("click", () => selectName(index));
+    nameChoicesEl.appendChild(button);
+  });
+  updateNameButtons();
+};
+
+const renderSoundChoices = () => {
+  soundChoicesEl.innerHTML = "";
+  soundChoices.forEach((bird, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "choice-button";
+    button.textContent = `Sound ${index + 1}`;
+    button.addEventListener("click", () => selectSound(index));
+    soundChoicesEl.appendChild(button);
+  });
+  updateSoundButtons();
+};
+
+const pickDistractors = (bird, count) => {
+  const candidates = BIRDS.filter((option) => option.name !== bird.name);
+  return shuffle(candidates).slice(0, count);
 };
 
 const startRound = () => {
@@ -160,47 +206,81 @@ const startRound = () => {
     return;
   }
 
+  stopAudio();
   inputLocked = false;
+  roundEvaluated = false;
+  selectedName = null;
+  selectedSound = null;
   setFeedback("");
+  nextButton.disabled = true;
 
   const shuffled = shuffle(BIRDS);
-  currentAnswer = shuffled[0];
-  currentOptions = shuffle([currentAnswer, ...shuffled.slice(1, 4)]);
+  correctBird = shuffled[0];
+  nameChoices = shuffle([correctBird, ...pickDistractors(correctBird, 3)]);
+  soundChoices = shuffle([correctBird, ...pickDistractors(correctBird, 3)]);
 
-  birdImage.src = currentAnswer.image;
-  birdImage.alt = currentAnswer.name;
+  birdImage.src = correctBird.image;
+  birdImage.alt = correctBird.name;
 
-  renderChoices();
+  renderNameChoices();
+  renderSoundChoices();
+  stepSound.classList.add("is-hidden");
 };
 
-const handleSelection = (index) => {
-  if (!gameActive || inputLocked) {
+const evaluateRound = () => {
+  if (!selectedName || !selectedSound || !correctBird) {
     return;
   }
 
-  const chosen = currentOptions[index];
-  if (!chosen) {
-    return;
-  }
+  const isCorrectName = selectedName.name === correctBird.name;
+  const isCorrectSound = selectedSound.name === correctBird.name;
+  const roundCorrect = isCorrectName && isCorrectSound;
 
-  inputLocked = true;
   totalCount += 1;
-
-  if (chosen.name === currentAnswer.name) {
+  if (roundCorrect) {
     correctCount += 1;
-    setFeedback("Correct!");
+    setFeedback("Correct");
   } else {
-    setFeedback(`Not quite. That was ${currentAnswer.name}.`);
+    setFeedback(`Wrong — correct was: ${correctBird.name}`);
   }
 
   saveProgress();
   updateScore();
+  roundEvaluated = true;
+  inputLocked = true;
+  nextButton.disabled = false;
+};
 
-  setTimeout(() => {
-    if (gameActive) {
-      startRound();
-    }
-  }, 900);
+const selectName = (index) => {
+  if (!gameActive || inputLocked) {
+    return;
+  }
+
+  const chosen = nameChoices[index];
+  if (!chosen) {
+    return;
+  }
+
+  stopAudio();
+  selectedName = chosen;
+  updateNameButtons();
+  stepSound.classList.remove("is-hidden");
+};
+
+const selectSound = (index) => {
+  if (!gameActive || inputLocked || !selectedName) {
+    return;
+  }
+
+  const chosen = soundChoices[index];
+  if (!chosen) {
+    return;
+  }
+
+  selectedSound = chosen;
+  updateSoundButtons();
+  playAudio(chosen);
+  evaluateRound();
 };
 
 startButton.addEventListener("click", () => {
@@ -213,7 +293,16 @@ startButton.addEventListener("click", () => {
   startRound();
 });
 
+nextButton.addEventListener("click", () => {
+  if (!gameActive || !roundEvaluated) {
+    return;
+  }
+  stopAudio();
+  startRound();
+});
+
 resetButton.addEventListener("click", () => {
+  stopAudio();
   localStorage.removeItem(STORAGE_KEYS.correct);
   localStorage.removeItem(STORAGE_KEYS.total);
   correctCount = 0;
@@ -223,12 +312,18 @@ resetButton.addEventListener("click", () => {
 });
 
 window.addEventListener("keydown", (event) => {
-  if (!gameActive) {
+  if (!gameActive || inputLocked) {
     return;
   }
   const index = Number.parseInt(event.key, 10) - 1;
-  if (Number.isInteger(index) && index >= 0 && index < currentOptions.length) {
-    handleSelection(index);
+  if (!Number.isInteger(index) || index < 0 || index > 3) {
+    return;
+  }
+
+  if (!selectedName) {
+    selectName(index);
+  } else if (!roundEvaluated) {
+    selectSound(index);
   }
 });
 

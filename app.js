@@ -48,9 +48,7 @@ const BIRDS = [
 const STORAGE_KEYS = {
   correct: "birdGame_correct",
   total: "birdGame_total",
-  points: "birdMatch_points",
-  namePoints: "birdMatch_namePoints",
-  soundPoints: "birdMatch_soundPoints"
+  points: "birdMatch_points"
 };
 
 const startButton = document.getElementById("start-button");
@@ -64,8 +62,6 @@ const feedback = document.getElementById("feedback");
 const nameFeedbackEl = document.getElementById("name-feedback");
 const soundFeedbackEl = document.getElementById("sound-feedback");
 const pointsEl = document.getElementById("points");
-const namePointsEl = document.getElementById("name-points");
-const soundPointsEl = document.getElementById("sound-points");
 const scoreEl = document.getElementById("score");
 const totalEl = document.getElementById("total");
 const audio = new Audio();
@@ -79,8 +75,6 @@ let selectedSound = null;
 let correctCount = 0;
 let totalCount = 0;
 let points = 0;
-let namePoints = 0;
-let soundPoints = 0;
 let gameActive = false;
 let inputLocked = false;
 let roundEvaluated = false;
@@ -104,8 +98,6 @@ const loadProgress = () => {
   correctCount = Number.parseInt(localStorage.getItem(STORAGE_KEYS.correct), 10) || 0;
   totalCount = Number.parseInt(localStorage.getItem(STORAGE_KEYS.total), 10) || 0;
   points = Number.parseInt(localStorage.getItem(STORAGE_KEYS.points), 10) || 0;
-  namePoints = Number.parseInt(localStorage.getItem(STORAGE_KEYS.namePoints), 10) || 0;
-  soundPoints = Number.parseInt(localStorage.getItem(STORAGE_KEYS.soundPoints), 10) || 0;
   updateScore();
 };
 
@@ -113,16 +105,12 @@ const saveProgress = () => {
   localStorage.setItem(STORAGE_KEYS.correct, correctCount);
   localStorage.setItem(STORAGE_KEYS.total, totalCount);
   localStorage.setItem(STORAGE_KEYS.points, points);
-  localStorage.setItem(STORAGE_KEYS.namePoints, namePoints);
-  localStorage.setItem(STORAGE_KEYS.soundPoints, soundPoints);
 };
 
 const updateScore = () => {
   scoreEl.textContent = correctCount;
   totalEl.textContent = totalCount;
   pointsEl.textContent = points;
-  namePointsEl.textContent = namePoints;
-  soundPointsEl.textContent = soundPoints;
 };
 
 const setFeedback = (message) => {
@@ -366,7 +354,6 @@ const selectName = (index) => {
   nameCorrectThisRound = selectedName.name === correctBird.name;
   if (nameCorrectThisRound) {
     points += 1;
-    namePoints += 1;
     setNameFeedback(`Step 1: Correct — ${correctBird.name}`);
   } else {
     setNameFeedback(`Step 1: Wrong — correct name: ${correctBird.name}`);
@@ -410,7 +397,6 @@ const selectSound = (index) => {
   soundCorrectThisRound = isCorrectSound;
   if (isCorrectSound) {
     points += 2;
-    soundPoints += 2;
     setSoundFeedback("Step 2: Correct. Correct sound was: Sound " + (correctSoundIndex + 1));
   } else {
     setSoundFeedback("Step 2: Wrong. Correct sound was: Sound " + (correctSoundIndex + 1));
@@ -444,13 +430,9 @@ resetButton.addEventListener("click", () => {
   localStorage.removeItem(STORAGE_KEYS.correct);
   localStorage.removeItem(STORAGE_KEYS.total);
   localStorage.removeItem(STORAGE_KEYS.points);
-  localStorage.removeItem(STORAGE_KEYS.namePoints);
-  localStorage.removeItem(STORAGE_KEYS.soundPoints);
   correctCount = 0;
   totalCount = 0;
   points = 0;
-  namePoints = 0;
-  soundPoints = 0;
   updateScore();
   setNameFeedback("");
   setSoundFeedback("");

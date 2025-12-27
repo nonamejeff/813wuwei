@@ -21,6 +21,7 @@
     <div class="controls">
       <button id="start-button" type="button">Start</button>
       <button id="reset-button" type="button">Reset Progress</button>
+      <button id="next-button" type="button" disabled>Next</button>
     </div>
 
     <section class="game" id="game" aria-live="polite">
@@ -28,14 +29,21 @@
         <img id="bird-image" src="" alt="" />
       </div>
 
-      <div class="choices" id="choices" role="list"></div>
+      <div class="step" id="step-name">
+        <h2 class="step-title">Step 1: Select the bird name.</h2>
+        <div class="choices" id="name-choices" role="list"></div>
+      </div>
+
+      <div class="step is-hidden" id="step-sound">
+        <h2 class="step-title">Step 2: Select the matching sound.</h2>
+        <div class="choices" id="sound-choices" role="list"></div>
+      </div>
 
       <p class="feedback" id="feedback"></p>
-      <p class="hint">Tip: Press keys 1–4 to choose an option.</p>
+      <p class="hint">Tip: Press keys 1–4 to choose an option in the current step.</p>
     </section>
   </main>
 
-  <audio id="bird-audio"></audio>
   <script src="app.js"></script>
 </body>
 </html>

@@ -68,6 +68,7 @@ const roundProgress = document.getElementById("round-progress");
 const roundLabel = document.getElementById("round-label");
 const hardModeToggle = document.getElementById("hard-mode-toggle");
 const hardModeInput = document.getElementById("hard-mode-input");
+const nameStepTitle = document.getElementById("name-step-title");
 const nameInput = document.getElementById("name-input");
 const submitNameButton = document.getElementById("submit-name");
 const audio = new Audio();
@@ -124,10 +125,14 @@ const updateScore = () => {
   pointsEl.textContent = points;
 };
 
-const updateProgress = () => {
+const updateProgress = (forceReset = false) => {
   const totalBirds = BIRDS.length;
   roundProgress.max = totalBirds;
-  const currentValue = gameActive ? Math.min(currentBirdIndex + 1, totalBirds) : 0;
+  const currentValue = forceReset
+    ? 0
+    : gameActive
+        ? Math.min(currentBirdIndex + 1, totalBirds)
+        : 0;
   roundProgress.value = currentValue;
   roundLabel.textContent = `${currentValue} / ${totalBirds} birds`;
 };
@@ -165,9 +170,11 @@ const updateHardModeUI = () => {
   if (hardModeEnabled) {
     nameChoicesEl.classList.add("is-hidden");
     hardModeInput.classList.remove("is-hidden");
+    nameStepTitle.textContent = "Step 1: Type the bird name.";
   } else {
     nameChoicesEl.classList.remove("is-hidden");
     hardModeInput.classList.add("is-hidden");
+    nameStepTitle.textContent = "Step 1: Select the bird name.";
   }
 };
 
@@ -357,7 +364,11 @@ const startRound = () => {
   birdImage.src = correctBird.image;
   birdImage.alt = correctBird.name;
 
-  renderNameChoices();
+  if (hardModeEnabled) {
+    nameChoicesEl.innerHTML = "";
+  } else {
+    renderNameChoices();
+  }
   renderSoundChoices();
   stepSound.classList.add("is-hidden");
   nameInput.value = "";
@@ -518,7 +529,7 @@ resetButton.addEventListener("click", () => {
   setNameFeedback("");
   setSoundFeedback("");
   setFeedback("Progress reset.");
-  updateProgress();
+  updateProgress(true);
 });
 
 hardModeToggle.addEventListener("change", (event) => {

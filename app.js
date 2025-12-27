@@ -61,6 +61,7 @@ const feedback = document.getElementById("feedback");
 const scoreEl = document.getElementById("score");
 const totalEl = document.getElementById("total");
 const audio = new Audio();
+const audioAvailability = new Map();
 
 let nameChoices = [];
 let soundChoices = [];
@@ -117,32 +118,54 @@ const stopAudio = () => {
   }
 };
 
-const setAudioSources = async (bird) => {
-  audio.src = bird.web4;
+const checkAudioSource = async (source) => {
+  if (!source) {
+    return false;
+  }
+  try {
+    const response = await fetch(source, { method: "HEAD" });
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
+};
+
+const ensureAudioAvailability = async (bird) => {
+  if (audioAvailability.has(bird.name)) {
+    return audioAvailability.get(bird.name);
+  }
+  const hasWeb4 = await checkAudioSource(bird.web4);
+  if (hasWeb4) {
+    const result = { available: true, source: bird.web4 };
+    audioAvailability.set(bird.name, result);
+    return result;
+  }
+  const hasMp3 = await checkAudioSource(bird.mp3);
+  const result = hasMp3 ? { available: true, source: bird.mp3 } : { available: false, source: "" };
+  audioAvailability.set(bird.name, result);
+  return result;
+};
+
+const playAudio = async (bird) => {
+  stopAudio();
+  const availability = await ensureAudioAvailability(bird);
+  if (!availability.available) {
+    setFeedback(`No audio available for ${bird.name}.`);
+    return false;
+  }
+  audio.src = availability.source;
   try {
     audio.load();
   } catch (error) {
     // Ignore load errors.
   }
-
   try {
     await audio.play();
+    return true;
   } catch (error) {
-    audio.src = bird.mp3;
-    try {
-      audio.load();
-    } catch (loadError) {
-      // Ignore load errors.
-    }
-    await audio.play();
-  }
-};
-
-const playAudio = (bird) => {
-  stopAudio();
-  setAudioSources(bird).catch(() => {
     setFeedback("Audio not supported.");
-  });
+    return false;
+  }
 };
 
 const updateNameButtons = () => {
@@ -158,14 +181,23 @@ const updateNameButtons = () => {
 };
 
 const updateSoundButtons = () => {
-  const buttons = Array.from(soundChoicesEl.querySelectorAll("button"));
-  buttons.forEach((button, index) => {
+  const selectButtons = Array.from(soundChoicesEl.querySelectorAll(".sound-select"));
+  selectButtons.forEach((button, index) => {
     const bird = soundChoices[index];
     const isSelected = selectedSound && bird && selectedSound.name === bird.name;
     button.classList.toggle("is-selected", Boolean(isSelected));
-    if (selectedSound) {
+    if (selectedSound || inputLocked) {
       button.disabled = !isSelected;
     }
+  });
+  const playButtons = Array.from(soundChoicesEl.querySelectorAll(".sound-play"));
+  playButtons.forEach((button) => {
+    const available = button.dataset.audioAvailable === "true";
+    if (inputLocked) {
+      button.disabled = true;
+      return;
+    }
+    button.disabled = !available;
   });
 };
 
@@ -185,12 +217,41 @@ const renderNameChoices = () => {
 const renderSoundChoices = () => {
   soundChoicesEl.innerHTML = "";
   soundChoices.forEach((bird, index) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "choice-button";
-    button.textContent = `Sound ${index + 1}`;
-    button.addEventListener("click", () => selectSound(index));
-    soundChoicesEl.appendChild(button);
+    const wrapper = document.createElement("div");
+    wrapper.className = "sound-choice";
+
+    const playButton = document.createElement("button");
+    playButton.type = "button";
+    playButton.className = "play-button sound-play";
+    playButton.textContent = "Loading audio...";
+    playButton.disabled = true;
+    playButton.dataset.audioAvailable = "unknown";
+    playButton.addEventListener("click", () => previewSound(index));
+
+    const selectButton = document.createElement("button");
+    selectButton.type = "button";
+    selectButton.className = "choice-button sound-select";
+    selectButton.textContent = `Select Sound ${index + 1}`;
+    selectButton.addEventListener("click", () => selectSound(index));
+
+    wrapper.appendChild(playButton);
+    wrapper.appendChild(selectButton);
+    soundChoicesEl.appendChild(wrapper);
+
+    ensureAudioAvailability(bird).then((availability) => {
+      if (!playButton.isConnected) {
+        return;
+      }
+      if (availability.available) {
+        playButton.textContent = "Play";
+        playButton.disabled = false;
+        playButton.dataset.audioAvailable = "true";
+      } else {
+        playButton.textContent = "No audio";
+        playButton.disabled = true;
+        playButton.dataset.audioAvailable = "false";
+      }
+    });
   });
   updateSoundButtons();
 };
@@ -248,6 +309,7 @@ const evaluateRound = () => {
   updateScore();
   roundEvaluated = true;
   inputLocked = true;
+  updateSoundButtons();
   nextButton.disabled = false;
 };
 
@@ -267,6 +329,21 @@ const selectName = (index) => {
   stepSound.classList.remove("is-hidden");
 };
 
+const previewSound = (index) => {
+  if (!gameActive || inputLocked || !selectedName) {
+    return;
+  }
+
+  const chosen = soundChoices[index];
+  if (!chosen) {
+    return;
+  }
+
+  playAudio(chosen).catch(() => {
+    setFeedback("Audio not supported.");
+  });
+};
+
 const selectSound = (index) => {
   if (!gameActive || inputLocked || !selectedName) {
     return;
@@ -279,7 +356,6 @@ const selectSound = (index) => {
 
   selectedSound = chosen;
   updateSoundButtons();
-  playAudio(chosen);
   evaluateRound();
 };
 

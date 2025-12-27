@@ -103,6 +103,11 @@ button:disabled {
   margin: 0 auto;
 }
 
+.sound-choice {
+  display: grid;
+  gap: 8px;
+}
+
 .choice-button {
   display: block;
   width: 100%;
@@ -118,6 +123,14 @@ button:disabled {
 }
 
 .choice-button:disabled {
+  background: #9ca3af;
+}
+
+.play-button {
+  background: #4b5563;
+}
+
+.play-button:disabled {
   background: #9ca3af;
 }
 

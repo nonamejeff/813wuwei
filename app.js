@@ -64,6 +64,12 @@ const soundFeedbackEl = document.getElementById("sound-feedback");
 const pointsEl = document.getElementById("points");
 const scoreEl = document.getElementById("score");
 const totalEl = document.getElementById("total");
+const roundProgress = document.getElementById("round-progress");
+const roundLabel = document.getElementById("round-label");
+const hardModeToggle = document.getElementById("hard-mode-toggle");
+const hardModeInput = document.getElementById("hard-mode-input");
+const nameInput = document.getElementById("name-input");
+const submitNameButton = document.getElementById("submit-name");
 const audio = new Audio();
 const audioAvailability = new Map();
 
@@ -84,6 +90,9 @@ let nameFeedback = "";
 let soundFeedback = "";
 let nameCorrectThisRound = false;
 let soundCorrectThisRound = false;
+let birdOrder = [];
+let currentBirdIndex = 0;
+let hardModeEnabled = false;
 
 const shuffle = (array) => {
   const copy = [...array];
@@ -93,6 +102,8 @@ const shuffle = (array) => {
   }
   return copy;
 };
+
+const normalizeGuess = (value) => value.trim().toLowerCase();
 
 const loadProgress = () => {
   correctCount = Number.parseInt(localStorage.getItem(STORAGE_KEYS.correct), 10) || 0;
@@ -111,6 +122,14 @@ const updateScore = () => {
   scoreEl.textContent = correctCount;
   totalEl.textContent = totalCount;
   pointsEl.textContent = points;
+};
+
+const updateProgress = () => {
+  const totalBirds = birdOrder.length || BIRDS.length;
+  roundProgress.max = totalBirds;
+  const currentValue = gameActive ? Math.min(currentBirdIndex + 1, totalBirds) : 0;
+  roundProgress.value = currentValue;
+  roundLabel.textContent = `${currentValue} / ${totalBirds} birds`;
 };
 
 const setFeedback = (message) => {
@@ -140,6 +159,25 @@ const stopAudio = () => {
   } catch (error) {
     // Some browsers may not support load on Audio objects.
   }
+};
+
+const updateHardModeUI = () => {
+  if (hardModeEnabled) {
+    nameChoicesEl.classList.add("is-hidden");
+    hardModeInput.classList.remove("is-hidden");
+  } else {
+    nameChoicesEl.classList.remove("is-hidden");
+    hardModeInput.classList.add("is-hidden");
+  }
+};
+
+const updateHardModeInputState = () => {
+  if (!hardModeEnabled) {
+    return;
+  }
+  const isDisabled = step1Locked || inputLocked || !gameActive;
+  nameInput.disabled = isDisabled;
+  submitNameButton.disabled = isDisabled;
 };
 
 const checkAudioSource = async (source) => {
@@ -303,8 +341,12 @@ const startRound = () => {
   setSoundFeedback("");
   nextButton.disabled = true;
 
-  const shuffled = shuffle(BIRDS);
-  correctBird = shuffled[0];
+  if (birdOrder.length === 0 || currentBirdIndex >= birdOrder.length) {
+    birdOrder = shuffle(BIRDS);
+    currentBirdIndex = 0;
+  }
+
+  correctBird = birdOrder[currentBirdIndex];
   nameChoices = shuffle([correctBird, ...pickDistractors(correctBird, 3)]);
   soundChoices = shuffle([correctBird, ...pickDistractors(correctBird, 3)]);
 
@@ -314,6 +356,9 @@ const startRound = () => {
   renderNameChoices();
   renderSoundChoices();
   stepSound.classList.add("is-hidden");
+  nameInput.value = "";
+  updateHardModeInputState();
+  updateProgress();
 };
 
 const evaluateRound = () => {
@@ -361,6 +406,31 @@ const selectName = (index) => {
   saveProgress();
   updateScore();
   updateNameButtons();
+  stepSound.classList.remove("is-hidden");
+};
+
+const submitTypedName = () => {
+  if (!gameActive || inputLocked || step1Locked) {
+    return;
+  }
+  const guess = nameInput.value;
+  if (!guess.trim()) {
+    setNameFeedback("Step 1: Please type a bird name.");
+    return;
+  }
+  stopAudio();
+  selectedName = { name: guess.trim() };
+  step1Locked = true;
+  nameCorrectThisRound = normalizeGuess(guess) === normalizeGuess(correctBird.name);
+  if (nameCorrectThisRound) {
+    points += 1;
+    setNameFeedback(`Step 1: Correct — ${correctBird.name}`);
+  } else {
+    setNameFeedback(`Step 1: Wrong — correct name: ${correctBird.name}`);
+  }
+  saveProgress();
+  updateScore();
+  updateHardModeInputState();
   stepSound.classList.remove("is-hidden");
 };
 
@@ -414,6 +484,8 @@ startButton.addEventListener("click", () => {
   gameActive = true;
   startButton.disabled = true;
   startButton.textContent = "Playing";
+  birdOrder = shuffle(BIRDS);
+  currentBirdIndex = 0;
   startRound();
 });
 
@@ -422,6 +494,12 @@ nextButton.addEventListener("click", () => {
     return;
   }
   stopAudio();
+  if (currentBirdIndex + 1 >= birdOrder.length) {
+    birdOrder = shuffle(BIRDS);
+    currentBirdIndex = 0;
+  } else {
+    currentBirdIndex += 1;
+  }
   startRound();
 });
 
@@ -437,6 +515,21 @@ resetButton.addEventListener("click", () => {
   setNameFeedback("");
   setSoundFeedback("");
   setFeedback("Progress reset.");
+  updateProgress();
+});
+
+hardModeToggle.addEventListener("change", (event) => {
+  hardModeEnabled = event.target.checked;
+  updateHardModeUI();
+  updateHardModeInputState();
+});
+
+submitNameButton.addEventListener("click", submitTypedName);
+
+nameInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    submitTypedName();
+  }
 });
 
 window.addEventListener("keydown", (event) => {
@@ -449,6 +542,9 @@ window.addEventListener("keydown", (event) => {
   }
 
   if (!selectedName) {
+    if (hardModeEnabled) {
+      return;
+    }
     selectName(index);
   } else if (!roundEvaluated) {
     selectSound(index);
@@ -456,3 +552,5 @@ window.addEventListener("keydown", (event) => {
 });
 
 loadProgress();
+updateHardModeUI();
+updateProgress();

@@ -47,7 +47,10 @@ const BIRDS = [
 
 const STORAGE_KEYS = {
   correct: "birdGame_correct",
-  total: "birdGame_total"
+  total: "birdGame_total",
+  points: "birdMatch_points",
+  namePoints: "birdMatch_namePoints",
+  soundPoints: "birdMatch_soundPoints"
 };
 
 const startButton = document.getElementById("start-button");
@@ -58,6 +61,11 @@ const nameChoicesEl = document.getElementById("name-choices");
 const soundChoicesEl = document.getElementById("sound-choices");
 const stepSound = document.getElementById("step-sound");
 const feedback = document.getElementById("feedback");
+const nameFeedbackEl = document.getElementById("name-feedback");
+const soundFeedbackEl = document.getElementById("sound-feedback");
+const pointsEl = document.getElementById("points");
+const namePointsEl = document.getElementById("name-points");
+const soundPointsEl = document.getElementById("sound-points");
 const scoreEl = document.getElementById("score");
 const totalEl = document.getElementById("total");
 const audio = new Audio();
@@ -70,9 +78,18 @@ let selectedName = null;
 let selectedSound = null;
 let correctCount = 0;
 let totalCount = 0;
+let points = 0;
+let namePoints = 0;
+let soundPoints = 0;
 let gameActive = false;
 let inputLocked = false;
 let roundEvaluated = false;
+let step1Locked = false;
+let step2Locked = false;
+let nameFeedback = "";
+let soundFeedback = "";
+let nameCorrectThisRound = false;
+let soundCorrectThisRound = false;
 
 const shuffle = (array) => {
   const copy = [...array];
@@ -86,21 +103,40 @@ const shuffle = (array) => {
 const loadProgress = () => {
   correctCount = Number.parseInt(localStorage.getItem(STORAGE_KEYS.correct), 10) || 0;
   totalCount = Number.parseInt(localStorage.getItem(STORAGE_KEYS.total), 10) || 0;
+  points = Number.parseInt(localStorage.getItem(STORAGE_KEYS.points), 10) || 0;
+  namePoints = Number.parseInt(localStorage.getItem(STORAGE_KEYS.namePoints), 10) || 0;
+  soundPoints = Number.parseInt(localStorage.getItem(STORAGE_KEYS.soundPoints), 10) || 0;
   updateScore();
 };
 
 const saveProgress = () => {
   localStorage.setItem(STORAGE_KEYS.correct, correctCount);
   localStorage.setItem(STORAGE_KEYS.total, totalCount);
+  localStorage.setItem(STORAGE_KEYS.points, points);
+  localStorage.setItem(STORAGE_KEYS.namePoints, namePoints);
+  localStorage.setItem(STORAGE_KEYS.soundPoints, soundPoints);
 };
 
 const updateScore = () => {
   scoreEl.textContent = correctCount;
   totalEl.textContent = totalCount;
+  pointsEl.textContent = points;
+  namePointsEl.textContent = namePoints;
+  soundPointsEl.textContent = soundPoints;
 };
 
 const setFeedback = (message) => {
   feedback.textContent = message;
+};
+
+const setNameFeedback = (message) => {
+  nameFeedback = message;
+  nameFeedbackEl.textContent = nameFeedback;
+};
+
+const setSoundFeedback = (message) => {
+  soundFeedback = message;
+  soundFeedbackEl.textContent = soundFeedback;
 };
 
 const stopAudio = () => {
@@ -174,7 +210,7 @@ const updateNameButtons = () => {
     const bird = nameChoices[index];
     const isSelected = selectedName && bird && selectedName.name === bird.name;
     button.classList.toggle("is-selected", Boolean(isSelected));
-    if (selectedName) {
+    if (step1Locked) {
       button.disabled = !isSelected;
     }
   });
@@ -186,14 +222,12 @@ const updateSoundButtons = () => {
     const bird = soundChoices[index];
     const isSelected = selectedSound && bird && selectedSound.name === bird.name;
     button.classList.toggle("is-selected", Boolean(isSelected));
-    if (selectedSound || inputLocked) {
-      button.disabled = !isSelected;
-    }
+    button.disabled = step2Locked || inputLocked;
   });
   const playButtons = Array.from(soundChoicesEl.querySelectorAll(".sound-play"));
   playButtons.forEach((button) => {
     const available = button.dataset.audioAvailable === "true";
-    if (inputLocked) {
+    if (step2Locked || inputLocked) {
       button.disabled = true;
       return;
     }
@@ -272,7 +306,13 @@ const startRound = () => {
   roundEvaluated = false;
   selectedName = null;
   selectedSound = null;
+  nameCorrectThisRound = false;
+  soundCorrectThisRound = false;
+  step1Locked = false;
+  step2Locked = false;
   setFeedback("");
+  setNameFeedback("");
+  setSoundFeedback("");
   nextButton.disabled = true;
 
   const shuffled = shuffle(BIRDS);
@@ -293,16 +333,9 @@ const evaluateRound = () => {
     return;
   }
 
-  const isCorrectName = selectedName.name === correctBird.name;
-  const isCorrectSound = selectedSound.name === correctBird.name;
-  const roundCorrect = isCorrectName && isCorrectSound;
-
   totalCount += 1;
-  if (roundCorrect) {
+  if (nameCorrectThisRound && soundCorrectThisRound) {
     correctCount += 1;
-    setFeedback("Correct");
-  } else {
-    setFeedback(`Wrong — correct was: ${correctBird.name}`);
   }
 
   saveProgress();
@@ -311,10 +344,14 @@ const evaluateRound = () => {
   inputLocked = true;
   updateSoundButtons();
   nextButton.disabled = false;
+
+  const nameSummary = nameCorrectThisRound ? "Correct" : "Wrong";
+  const soundSummary = soundCorrectThisRound ? "Correct" : "Wrong";
+  setFeedback(`Round Summary: Step 1 (Name) ${nameSummary} | Step 2 (Sound) ${soundSummary}`);
 };
 
 const selectName = (index) => {
-  if (!gameActive || inputLocked) {
+  if (!gameActive || inputLocked || step1Locked) {
     return;
   }
 
@@ -325,12 +362,23 @@ const selectName = (index) => {
 
   stopAudio();
   selectedName = chosen;
+  step1Locked = true;
+  nameCorrectThisRound = selectedName.name === correctBird.name;
+  if (nameCorrectThisRound) {
+    points += 1;
+    namePoints += 1;
+    setNameFeedback(`Step 1: Correct — ${correctBird.name}`);
+  } else {
+    setNameFeedback(`Step 1: Wrong — correct name: ${correctBird.name}`);
+  }
+  saveProgress();
+  updateScore();
   updateNameButtons();
   stepSound.classList.remove("is-hidden");
 };
 
 const previewSound = (index) => {
-  if (!gameActive || inputLocked || !selectedName) {
+  if (!gameActive || inputLocked || step2Locked || !selectedName) {
     return;
   }
 
@@ -345,7 +393,7 @@ const previewSound = (index) => {
 };
 
 const selectSound = (index) => {
-  if (!gameActive || inputLocked || !selectedName) {
+  if (!gameActive || inputLocked || !selectedName || step2Locked) {
     return;
   }
 
@@ -354,7 +402,21 @@ const selectSound = (index) => {
     return;
   }
 
+  stopAudio();
   selectedSound = chosen;
+  step2Locked = true;
+  const correctSoundIndex = soundChoices.findIndex((bird) => bird.name === correctBird.name);
+  const isCorrectSound = index === correctSoundIndex;
+  soundCorrectThisRound = isCorrectSound;
+  if (isCorrectSound) {
+    points += 2;
+    soundPoints += 2;
+    setSoundFeedback("Step 2: Correct. Correct sound was: Sound " + (correctSoundIndex + 1));
+  } else {
+    setSoundFeedback("Step 2: Wrong. Correct sound was: Sound " + (correctSoundIndex + 1));
+  }
+  saveProgress();
+  updateScore();
   updateSoundButtons();
   evaluateRound();
 };
@@ -381,9 +443,17 @@ resetButton.addEventListener("click", () => {
   stopAudio();
   localStorage.removeItem(STORAGE_KEYS.correct);
   localStorage.removeItem(STORAGE_KEYS.total);
+  localStorage.removeItem(STORAGE_KEYS.points);
+  localStorage.removeItem(STORAGE_KEYS.namePoints);
+  localStorage.removeItem(STORAGE_KEYS.soundPoints);
   correctCount = 0;
   totalCount = 0;
+  points = 0;
+  namePoints = 0;
+  soundPoints = 0;
   updateScore();
+  setNameFeedback("");
+  setSoundFeedback("");
   setFeedback("Progress reset.");
 });
 

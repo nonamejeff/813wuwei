@@ -14,8 +14,10 @@
     </header>
 
     <section class="scoreboard">
-      <div class="score">Score: <span id="score">0</span></div>
-      <div class="total">Total: <span id="total">0</span></div>
+      <div class="points">Points: <span id="points">0</span></div>
+      <div class="score">Rounds Correct: <span id="score">0</span></div>
+      <div class="total">Total Rounds: <span id="total">0</span></div>
+      <div class="breakdown">Name Points: <span id="name-points">0</span> | Sound Points: <span id="sound-points">0</span></div>
     </section>
 
     <div class="controls">
@@ -32,11 +34,13 @@
       <div class="step" id="step-name">
         <h2 class="step-title">Step 1: Select the bird name.</h2>
         <div class="choices" id="name-choices" role="list"></div>
+        <p class="feedback" id="name-feedback"></p>
       </div>
 
       <div class="step is-hidden" id="step-sound">
         <h2 class="step-title">Step 2: Play each sound, then select the match.</h2>
         <div class="choices" id="sound-choices" role="list"></div>
+        <p class="feedback" id="sound-feedback"></p>
       </div>
 
       <p class="feedback" id="feedback"></p>

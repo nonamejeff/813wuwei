@@ -1,14 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🦜</title>
-    <link rel="stylesheet" href="style.css"> <!-- Link to the CSS file -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bird Match Game</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <main class="container">
+    <header>
+      <h1>Bird Match Game</h1>
+      <p>Match the bird sound to the correct image.</p>
+    </header>
 
-    <p> Yup </p>
+    <section class="scoreboard">
+      <div class="score">Score: <span id="score">0</span></div>
+      <div class="total">Total: <span id="total">0</span></div>
+    </section>
 
+    <div class="controls">
+      <button id="start-button" type="button">Start</button>
+      <button id="reset-button" type="button">Reset Progress</button>
+    </div>
+
+    <section class="game" id="game" aria-live="polite">
+      <div class="image-wrap">
+        <img id="bird-image" src="" alt="" />
+      </div>
+
+      <div class="choices" id="choices" role="list"></div>
+
+      <p class="feedback" id="feedback"></p>
+      <p class="hint">Tip: Press keys 1–4 to choose an option.</p>
+    </section>
+  </main>
+
+  <audio id="bird-audio"></audio>
+  <script src="app.js"></script>
 </body>
 </html>

@@ -46,7 +46,6 @@ const BIRDS = [
 ];
 
 const startButton = document.getElementById("start-button");
-const resetButton = document.getElementById("reset-button");
 const nextButton = document.getElementById("next-button");
 const birdImage = document.getElementById("bird-image");
 const nameChoicesEl = document.getElementById("name-choices");
@@ -392,13 +391,6 @@ nextButton.addEventListener("click", () => {
     currentBirdIndex += 1;
   }
   startRound();
-});
-
-resetButton.addEventListener("click", () => {
-  stopAudio();
-  setNameFeedback("");
-  setSoundFeedback("");
-  setFeedback("Progress reset.");
 });
 
 window.addEventListener("keydown", (event) => {

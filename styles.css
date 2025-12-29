@@ -30,28 +30,6 @@ header h1 {
   margin: 0 0 8px;
 }
 
-.scoreboard {
-  display: flex;
-  justify-content: center;
-  gap: 24px;
-  margin-bottom: 16px;
-  font-weight: 600;
-}
-
-.progress {
-  display: grid;
-  gap: 8px;
-  justify-content: center;
-  margin-bottom: 16px;
-  font-weight: 600;
-}
-
-.progress progress {
-  width: min(360px, 80vw);
-  height: 14px;
-  accent-color: #2c6bed;
-}
-
 .controls {
   display: flex;
   justify-content: center;
@@ -80,14 +58,6 @@ button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   box-shadow: none;
-}
-
-.toggle {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-  font-weight: 600;
-  color: #1f2937;
 }
 
 .image-wrap {
@@ -125,21 +95,6 @@ button:disabled {
   margin: 0 auto;
 }
 
-.hard-mode-input {
-  display: grid;
-  gap: 10px;
-  justify-content: center;
-  margin: 0 auto;
-  max-width: 400px;
-}
-
-.hard-mode-input input {
-  padding: 10px 14px;
-  border-radius: 8px;
-  border: 1px solid #d1d5db;
-  font-size: 1rem;
-}
-
 .sound-choice {
   display: grid;
   gap: 8px;
@@ -174,6 +129,12 @@ button:disabled {
 .feedback {
   margin-top: 16px;
   font-weight: 600;
+}
+
+.next-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
 }
 
 @media (max-width: 600px) {

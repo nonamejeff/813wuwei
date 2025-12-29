@@ -117,13 +117,13 @@ const stopAudio = () => {
 
 const checkAudioSource = async (source) => {
   if (!source) {
-    return false;
+    return "missing";
   }
   try {
     const response = await fetch(source, { method: "HEAD" });
-    return response.ok;
+    return response.ok ? "available" : "missing";
   } catch (error) {
-    return false;
+    return "unknown";
   }
 };
 
@@ -131,14 +131,23 @@ const ensureAudioAvailability = async (bird) => {
   if (audioAvailability.has(bird.name)) {
     return audioAvailability.get(bird.name);
   }
-  const hasWeb4 = await checkAudioSource(bird.web4);
-  if (hasWeb4) {
+  const web4Status = await checkAudioSource(bird.web4);
+  if (web4Status === "available") {
     const result = { available: true, source: bird.web4 };
     audioAvailability.set(bird.name, result);
     return result;
   }
-  const hasMp3 = await checkAudioSource(bird.mp3);
-  const result = hasMp3 ? { available: true, source: bird.mp3 } : { available: false, source: "" };
+  const mp3Status = await checkAudioSource(bird.mp3);
+  if (mp3Status === "available") {
+    const result = { available: true, source: bird.mp3 };
+    audioAvailability.set(bird.name, result);
+    return result;
+  }
+  const isUnknown = web4Status === "unknown" || mp3Status === "unknown";
+  const fallbackSource = bird.mp3 || bird.web4 || "";
+  const result = isUnknown
+    ? { available: Boolean(fallbackSource), source: fallbackSource }
+    : { available: false, source: "" };
   audioAvailability.set(bird.name, result);
   return result;
 };

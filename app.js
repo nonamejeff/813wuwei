@@ -55,6 +55,8 @@ const feedback = document.getElementById("feedback");
 const nameFeedbackEl = document.getElementById("name-feedback");
 const soundFeedbackEl = document.getElementById("sound-feedback");
 const nameStepTitle = document.getElementById("name-step-title");
+const nameStep = document.getElementById("step-name");
+const nextWrap = document.querySelector(".next-wrap");
 const audio = new Audio();
 const audioAvailability = new Map();
 
@@ -372,6 +374,8 @@ startButton.addEventListener("click", () => {
     return;
   }
   gameActive = true;
+  nameStep.classList.remove("is-hidden");
+  nextWrap.classList.remove("is-hidden");
   startButton.disabled = true;
   startButton.textContent = "Playing";
   birdOrder = shuffle(BIRDS);

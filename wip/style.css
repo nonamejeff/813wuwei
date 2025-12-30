@@ -1,0 +1,145 @@
+:root {
+  color-scheme: light;
+  --sand: #f5f1e8;
+  --stone: #e3d9c8;
+  --forest: #33463a;
+  --pine: #3f5a45;
+  --accent: #7b6a4d;
+  --text: #1e1f1d;
+  --muted: #4f564c;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Georgia", "Times New Roman", serif;
+  background: var(--sand);
+  color: var(--text);
+  line-height: 1.65;
+}
+
+.container {
+  width: min(960px, 92vw);
+  margin: 0 auto;
+}
+
+.hero {
+  background: var(--stone);
+  padding: 4rem 0 3rem;
+  border-bottom: 1px solid rgba(30, 31, 29, 0.1);
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.75rem;
+  color: var(--accent);
+  margin-bottom: 1rem;
+}
+
+h1 {
+  font-size: clamp(2.4rem, 4vw, 3.2rem);
+  color: var(--forest);
+  margin-bottom: 1rem;
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  color: var(--muted);
+  max-width: 42rem;
+}
+
+.section {
+  padding: 3rem 0 0;
+}
+
+.section h2 {
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+  color: var(--forest);
+}
+
+.section-intro {
+  max-width: 44rem;
+  color: var(--muted);
+  margin-bottom: 2rem;
+}
+
+.habitat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+
+.habitat-card {
+  background: #fffdf8;
+  border: 1px solid rgba(30, 31, 29, 0.08);
+  padding: 1.5rem;
+  border-radius: 16px;
+  box-shadow: 0 10px 20px rgba(30, 31, 29, 0.05);
+}
+
+.habitat-card h3 {
+  color: var(--pine);
+  font-size: 1.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.habitat-card p {
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.habitat-card h4 {
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+
+.habitat-card ul {
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.habitat-card li {
+  border-left: 3px solid var(--stone);
+  padding-left: 0.6rem;
+}
+
+.highlight-list {
+  list-style: none;
+  display: grid;
+  gap: 0.75rem;
+  padding-left: 0;
+}
+
+.highlight-list li {
+  background: #fffdf8;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(30, 31, 29, 0.08);
+}
+
+.footer {
+  margin-top: 4rem;
+  padding: 2rem 0 3rem;
+  color: var(--muted);
+  border-top: 1px solid rgba(30, 31, 29, 0.1);
+}
+
+@media (max-width: 720px) {
+  .hero {
+    padding: 3rem 0 2.5rem;
+  }
+
+  .section {
+    padding-top: 2.5rem;
+  }
+}

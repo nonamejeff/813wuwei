@@ -197,7 +197,7 @@ const updateSoundButtons = () => {
   const playButtons = Array.from(soundChoicesEl.querySelectorAll(".sound-play"));
   playButtons.forEach((button) => {
     const available = button.dataset.audioAvailable === "true";
-    if (step2Locked || inputLocked) {
+    if (inputLocked && !roundEvaluated) {
       button.disabled = true;
       return;
     }
@@ -339,7 +339,7 @@ const selectName = (index) => {
 };
 
 const previewSound = (index) => {
-  if (!gameActive || inputLocked || step2Locked || !selectedName) {
+  if (!gameActive || (!roundEvaluated && (inputLocked || step2Locked)) || !selectedName) {
     return;
   }
 

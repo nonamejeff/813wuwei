@@ -3,45 +3,101 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bird Match Game</title>
-  <link rel="stylesheet" href="styles.css" />
+  <title>The Tampa Bay Biodiversity Atlas</title>
+  <link rel="stylesheet" href="/styles/main.css" />
 </head>
 <body>
+  <header class="site-header">
+    <nav class="site-nav">
+      <a href="/">Home</a>
+      <a href="/games/bird-guess/">Bird Game</a>
+    </nav>
+  </header>
+
   <main class="container">
-    <header>
-      <h1>Wetland Birds of Florida</h1>
-       <p> Welcome, we are here, I think... Match the Image to the correct bird name and sound. Godspeed</p>
-    </header>
+    <section class="hero">
+      <h1>The Tampa Bay Biodiversity Atlas</h1>
+      <p class="tagline">Nature, Unforced.</p>
+      <p class="tagline">Stop hunting. Start seeing.</p>
+      <p>
+        There is no need to conquer this landscape with names or definitions. To truly understand the wild heart of Tampa Bay, one must simply drift with it. This is a region of "liquid land," where the boundary between earth and water is never fixed, but always becoming something new.
+      </p>
+      <p>
+        Here, we invite you to unlearn the need for rigid categories and simply experience the "halftones" of the Florida wilderness—the subtle shifts from the tea-colored water of a swamp to the sugar-white sand of a scrub ridge. This is a place of impermanence, where fire, flood, and tide are not disasters, but the very breath of the land.
+      </p>
+    </section>
 
-    <div class="controls">
-      <button id="start-button" type="button">Start</button>
-    </div>
+    <hr />
 
-    <section class="game" id="game" aria-live="polite">
-      <div class="image-wrap">
-        <img id="bird-image" src="" alt="" />
+    <section>
+      <h2>The Interconnected Landscape</h2>
+      <p>
+        The land here is a study in flow. Habitats do not sit apart in boxes; they bleed into one another, changing with the elevation of a few inches or the passing of a storm.
+      </p>
+
+      <h3>The High Ground: Ancient Ridges &amp; Pines</h3>
+      <p>
+        On the driest ground, we find the Sandhills and Pine Flatwoods. These are open, sun-washed savannas where longleaf and slash pines stand like pillars over a floor of wiregrass and saw palmetto. It is a landscape of "lonely distances," kept clean and open by the renewing touch of fire. Without the flame, the hardwoods would close in, choking the "green silence" of the pines. Here, the soil is sandy and acidic, a memory of ancient shorelines left behind by a retreating sea.
+      </p>
+
+      <h3>The Shadows: Hammocks &amp; Domes</h3>
+      <p>
+        Where the fire cannot reach, the Oak Hammocks rise. These are the "green umbrellas" of the region, shady islands of live oaks, laurel oaks, and cabbage palms draped in vines and Spanish moss. In the lower depressions, the land dips into Floodplain Swamps—cathedrals of bald cypress trees that hold cool, dark water during the wet season. These places are refuges, offering a stillness that feels older than the surrounding city.
+      </p>
+
+      <h3>The Liquid Edge: Prairies to the Sea</h3>
+      <p>
+        As the land lowers, it dissolves into the Freshwater Marshes and Wet Prairies. This is the "river of grass," a vast, shallow sheet of water filled with maidencane and pickerelweed, moving so slowly it seems still. Finally, the fresh water meets the salt in the Salt Marshes and Mangrove Swamps. This is a "horizontal world" of tangled red and black mangrove roots, a place of "sulfurous ooze" and rich decay where the land gives itself over to the tides. It is here, in the mixing of waters, that the "soup" of life begins.
+      </p>
+    </section>
+
+    <hr />
+
+    <section>
+      <h2>Ecological Batches</h2>
+      <p>Life here is not a list; it is a collection of relationships. Choose a path below to explore.</p>
+
+      <div class="batch">
+        <h3>The Winged World (Birds)</h3>
+        <p>
+          Messengers of the water cycle. Birds here are tied to the rhythm of the water; they move where the food is, shifting like clouds across the ecosystem. In the Tampa Bay sky, you will see "whirling fragments of color"—the white of the ibis, the pink of the roseate spoonbill, the slate-blue of the heron. When the marshes dry down, wood storks gather at the shrinking pools to feast on trapped fish. On the tidal flats, flocks of sandpipers skitter like "restless smoke" along the mud, while in the mangrove jungles, pelicans and cormorants roost in the heavy branches. High above the pine uplands, you may see the silhouette of a bald eagle or a red-shouldered hawk, watching the halftones of the landscape for a movement in the grass.
+        </p>
+        <a class="cta" href="/games/bird-guess/">Play the Bird Sound Guessing Game</a>
       </div>
 
-      <div class="step is-hidden" id="step-name">
-        <h2 class="step-title" id="name-step-title">Step 1: Select the bird name.</h2>
-        <div class="choices" id="name-choices" role="list"></div>
-        <p class="feedback" id="name-feedback"></p>
+      <div class="batch">
+        <h3>The Greenery (Plants)</h3>
+        <p>
+          The texture of the landscape. From the stunted scrub oaks twisting out of dry white sand to the giant leather ferns of the riverbanks, the plants here tell the story of the soil. They provide the "shaggy" coats of the palm trunks and the needle-strewn floor of the flatwoods. They survive fire, salt, and flood, blooming in the pauses between disturbances. Whether it is the sawgrass with its serrated blade or the delicate epiphytes (air plants) clinging to a cypress trunk, the greenery is the vessel that holds the sun's energy.
+        </p>
       </div>
 
-      <div class="step is-hidden" id="step-sound">
-        <h2 class="step-title">Step 2: Play each sound, then select the match.</h2>
-        <div class="choices" id="sound-choices" role="list"></div>
-        <p class="feedback" id="sound-feedback"></p>
+      <div class="batch">
+        <h3>The Swimmers (Fish)</h3>
+        <p>
+          Life in the soup. In the tea-colored creeks and the clear seagrass beds, life flashes silver. The fish are the currency of the estuary, moving energy from the sun-soaked shallows into the bellies of the birds and the dolphins. They thrive in the "rich mangrove soup," converting the decay of fallen leaves into vibrant life. From the tiny killifish and gambusia that patrol the mosquito larvae in the shallows to the mullet leaping in the bay, these swimmers are the hidden engine of the wetland.
+        </p>
       </div>
 
-      <p class="feedback" id="feedback"></p>
+      <div class="batch">
+        <h3>The Ancients (Reptiles &amp; Amphibians)</h3>
+        <p>
+          Architects and survivors. This is the realm of the American Alligator, the great architect of the wetlands. By digging "gator holes" in the muck, they create oases that allow fish and birds to survive the winter drought. Along with them are the pig frogs—whose grunts fill the night air—and the turtles sculling through the sloughs. These ancient eyes watch from the duckweed, reminding us that this land belongs to the water.
+        </p>
+      </div>
 
-      <div class="next-wrap is-hidden">
-        <button id="next-button" type="button" disabled>Next</button>
+      <div class="batch">
+        <h3>The Little Lives (Insects)</h3>
+        <p>
+          The hum of the marsh. Do not overlook the hum in the air. The dragonflies patrolling the sawgrass and the butterflies drifting through the scrub are the subtle workers of the ecosystem. They pollinate the "hot gardens of the sun" and feed the swallows and frogs. Even the mosquitoes play their part, feeding the fish that feed the birds that paint the sky.
+        </p>
       </div>
     </section>
   </main>
 
-  <script src="app.js"></script>
+  <footer class="site-footer">
+    <p>813 Wu Wei</p>
+    <p>links</p>
+  </footer>
 </body>
 </html>

@@ -26,6 +26,22 @@ body {
   text-align: center;
 }
 
+.game-nav {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 12px;
+}
+
+.game-nav a {
+  color: #2c6bed;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.game-nav a:hover {
+  text-decoration: underline;
+}
+
 header h1 {
   margin: 0 0 8px;
 }
@@ -82,7 +98,6 @@ button:disabled {
   font-weight: 600;
   color: #1f2937;
 }
-
 
 .choices {
   display: grid;

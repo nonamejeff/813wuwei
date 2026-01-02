@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bird Match Game</title>
+  <link rel="stylesheet" href="game.css" />
+</head>
+<body>
+  <main class="container">
+    <header>
+      <nav class="game-nav">
+        <a href="/">Back to Atlas Home</a>
+      </nav>
+      <h1>Wetland Birds of Florida</h1>
+      <p>Welcome, we are here, I think... Match the Image to the correct bird name and sound. Godspeed</p>
+    </header>
+
+    <div class="controls">
+      <button id="start-button" type="button">Start</button>
+    </div>
+
+    <section class="game" id="game" aria-live="polite">
+      <div class="image-wrap">
+        <img id="bird-image" src="" alt="" />
+      </div>
+
+      <div class="step is-hidden" id="step-name">
+        <h2 class="step-title" id="name-step-title">Step 1: Select the bird name.</h2>
+        <div class="choices" id="name-choices" role="list"></div>
+        <p class="feedback" id="name-feedback"></p>
+      </div>
+
+      <div class="step is-hidden" id="step-sound">
+        <h2 class="step-title">Step 2: Play each sound, then select the match.</h2>
+        <div class="choices" id="sound-choices" role="list"></div>
+        <p class="feedback" id="sound-feedback"></p>
+      </div>
+
+      <p class="feedback" id="feedback"></p>
+
+      <div class="next-wrap is-hidden">
+        <button id="next-button" type="button" disabled>Next</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>

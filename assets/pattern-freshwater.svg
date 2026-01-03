@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="420" viewBox="0 0 420 420">
+  <defs>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="2" stitchTiles="stitch"></feTurbulence>
+      <feColorMatrix type="matrix" values="
+        1 0 0 0 0
+        0 1 0 0 0
+        0 0 1 0 0
+        0 0 0 0.06 0"></feColorMatrix>
+    </filter>
+
+    <pattern id="p" patternUnits="userSpaceOnUse" width="120" height="120" patternTransform="rotate(-25)">
+      <path d="M0 60H120" stroke="rgba(120,102,78,0.10)" stroke-width="1" fill="none"></path>
+
+      <!-- gentle wave -->
+      <path d="M10 60 C 18 58, 26 62, 34 60 S 50 62, 58 60 S 74 62, 82 60" stroke="rgba(120,102,78,0.08)" stroke-width="1" fill="none"></path>
+
+      <!-- lily pad (simple circle w/ notch) -->
+      <path d="M46 60
+               m -6,0
+               a 6,6 0 1,0 12,0
+               a 6,6 0 1,0 -12,0
+               M46 60 L50 56" fill="none" stroke="rgba(120,102,78,0.10)" stroke-width="1"></path>
+
+      <!-- reeds -->
+      <path d="M78 70 v-14 M82 70 v-10 M86 70 v-12" stroke="rgba(120,102,78,0.10)" stroke-width="1"></path>
+      <circle cx="86" cy="58" r="0.9" fill="rgba(120,102,78,0.10)"></circle>
+
+      <!-- tiny fish -->
+      <path d="M98 60 l6 -3 l6 3 l-6 3 z" fill="none" stroke="rgba(120,102,78,0.08)" stroke-width="1"></path>
+    </pattern>
+  </defs>
+
+  <rect width="420" height="420" fill="#f4f0e6"></rect>
+  <rect width="420" height="420" filter="url(#grain)" opacity="1"></rect>
+  <rect width="420" height="420" fill="url(#p)"></rect>
+</svg>

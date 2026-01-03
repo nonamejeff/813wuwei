@@ -1,7 +1,7 @@
 :root {
-  color: #1b1b1d;
-  background-color: #f8f6f1;
-  font-family: "Helvetica Neue", Arial, sans-serif;
+  color: #2d2a26;
+  background-color: #f2ede4;
+  font-family: "Georgia", "Times New Roman", serif;
 }
 
 * {
@@ -11,6 +11,11 @@
 body {
   margin: 0;
   line-height: 1.7;
+  background-color: #f2ede4;
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(125, 101, 82, 0.08), transparent 55%),
+    radial-gradient(circle at 80% 10%, rgba(164, 138, 116, 0.12), transparent 60%),
+    repeating-linear-gradient(120deg, rgba(90, 75, 63, 0.04), rgba(90, 75, 63, 0.04) 1px, transparent 1px, transparent 8px);
 }
 
 a {
@@ -18,7 +23,7 @@ a {
 }
 
 .site-header {
-  padding: 24px 20px 0;
+  padding: 28px 20px 0;
 }
 
 .site-nav {
@@ -26,14 +31,15 @@ a {
   gap: 18px;
   justify-content: center;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
+  font-family: "Courier New", "Courier", monospace;
 }
 
 .site-nav a {
   text-decoration: none;
-  color: #2f3a40;
+  color: #4a3f34;
 }
 
 .site-nav a:hover {
@@ -41,29 +47,78 @@ a {
 }
 
 .container {
-  width: min(900px, 92vw);
-  margin: 0 auto 60px;
-  padding: 20px 0 0;
+  width: min(980px, 92vw);
+  margin: 0 auto 80px;
+  padding: 30px 0 0;
+}
+
+.hero {
+  position: relative;
+  padding: 28px 32px;
+  background: #fbf7ef;
+  border: 1px solid #d2c3b3;
+  box-shadow: 0 18px 45px rgba(50, 36, 22, 0.12);
+}
+
+.hero::after {
+  content: "FIELD NOTES";
+  position: absolute;
+  top: -12px;
+  right: 24px;
+  padding: 4px 10px;
+  border: 1px solid #5a4a3d;
+  background: #f5efe4;
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-family: "Courier New", "Courier", monospace;
 }
 
 .hero h1 {
-  font-size: clamp(2.2rem, 4vw, 3rem);
+  font-size: clamp(2.3rem, 4vw, 3.2rem);
   margin-bottom: 12px;
+  letter-spacing: 0.02em;
 }
 
 .tagline {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 600;
   margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-family: "Courier New", "Courier", monospace;
 }
 
 section {
   margin-top: 36px;
 }
 
+.specimen {
+  position: relative;
+  padding: 30px 32px;
+  background: #fdf9f2;
+  border: 1px solid #d8cbbc;
+  box-shadow: 0 16px 35px rgba(70, 50, 32, 0.1);
+}
+
+.specimen::before {
+  content: "specimen dossier";
+  position: absolute;
+  top: -14px;
+  left: 28px;
+  padding: 4px 12px;
+  background: #efe7db;
+  border: 1px solid #b9a997;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.65rem;
+  font-family: "Courier New", "Courier", monospace;
+}
+
 h2 {
-  font-size: 1.7rem;
+  font-size: 1.75rem;
   margin-bottom: 12px;
+  letter-spacing: 0.02em;
 }
 
 h3 {
@@ -78,36 +133,45 @@ p {
 
 hr {
   border: none;
-  border-top: 1px solid #d8d4cc;
+  border-top: 1px dashed #b8aa9b;
   margin: 36px 0;
 }
 
 .batch {
   margin-top: 30px;
+  padding-left: 18px;
+  border-left: 2px solid rgba(88, 68, 52, 0.35);
 }
 
 .cta {
   display: inline-block;
-  padding: 12px 20px;
+  padding: 10px 18px;
   margin-top: 8px;
-  border-radius: 999px;
-  border: 1px solid #1b1b1d;
+  border-radius: 4px;
+  border: 1px solid #3f3327;
   text-decoration: none;
   font-weight: 600;
-  background: #fff;
-  color: #1b1b1d;
+  background: #f4ece1;
+  color: #3f3327;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.75rem;
+  font-family: "Courier New", "Courier", monospace;
 }
 
 .cta:hover {
-  background: #1b1b1d;
-  color: #fff;
+  background: #3f3327;
+  color: #f9f2e7;
 }
 
 .site-footer {
   text-align: center;
   padding: 32px 20px 40px;
-  font-size: 0.85rem;
-  color: #5b5b60;
+  font-size: 0.8rem;
+  color: #5f5245;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-family: "Courier New", "Courier", monospace;
 }
 
 .site-footer p {

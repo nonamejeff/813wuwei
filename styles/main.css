@@ -123,7 +123,7 @@ section {
 
 .specimen::before,
 .landscape::before {
-  content: "specimen dossier";
+  content: "field record";
   position: absolute;
   top: -14px;
   left: 28px;
@@ -138,7 +138,7 @@ section {
 }
 
 .landscape::before {
-  content: "interconnected landscape";
+  content: "connected habitats";
 }
 
 h2 {

@@ -148,6 +148,10 @@ h3 {
   margin-bottom: 18px;
 }
 
+.liquid-land-details-top {
+  margin: 8px 0 4px;
+}
+
 .liquid-land-details .detail {
   width: 30px;
   height: 16px;

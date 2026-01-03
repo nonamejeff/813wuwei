@@ -25,6 +25,7 @@ a {
 
 .site-header {
   padding: 32px 20px 8px;
+  text-align: center;
 }
 
 .site-title {
@@ -34,7 +35,7 @@ a {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-family: "Palatino Linotype", "Book Antiqua", "Palatino", "Georgia", serif;
-  color: #3c3229;
+  color: #7b6d5e;
 }
 
 .site-nav {
@@ -120,13 +121,14 @@ section {
 }
 
 .specimen::before {
-  content: "ecological areas";
+  content: "specimen dossier";
   position: absolute;
   top: -14px;
   left: 28px;
   padding: 4px 12px;
-  background: #efe7db;
-  border: 1px solid #b9a997;
+  background: var(--paper);
+  border: 1px solid #7b6d5e;
+  color: #6f6254;
   text-transform: uppercase;
   letter-spacing: 0.2em;
   font-size: 0.65rem;

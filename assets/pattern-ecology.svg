@@ -1,0 +1,81 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="diagonal-lanes" width="96" height="96" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+      <line x1="0" y1="0" x2="96" y2="0" stroke="#7b6d5e" stroke-width="1" stroke-opacity="0.12" />
+    </pattern>
+    <filter id="paper-grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" seed="4" />
+      <feColorMatrix type="saturate" values="0" />
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="0 0.05" />
+      </feComponentTransfer>
+    </filter>
+    <g id="motif-leaf" fill="none">
+      <path d="M2 8 C6 0 16 0 20 8 C16 16 6 16 2 8" />
+      <path d="M11 4 L11 12" />
+    </g>
+    <g id="motif-bird" fill="none">
+      <path d="M0 8 Q6 2 12 8 Q18 2 24 8" />
+    </g>
+    <g id="motif-reeds" fill="none">
+      <path d="M4 14 L4 2" />
+      <path d="M10 16 L10 0" />
+      <path d="M16 14 L16 3" />
+      <path d="M4 6 C6 7 8 8 10 9" />
+      <path d="M10 7 C12 8 14 9 16 10" />
+    </g>
+    <g id="motif-shell" fill="none">
+      <path d="M2 12 C4 4 12 4 18 8 C12 12 8 14 2 12" />
+      <path d="M6 10 C8 8 11 8 14 9" />
+    </g>
+    <g id="motif-waves" fill="none">
+      <path d="M0 8 C4 6 8 6 12 8 C16 10 20 10 24 8" />
+      <path d="M2 12 C6 10 10 10 14 12 C18 14 22 14 26 12" />
+      <path d="M18 4 C20 3 22 3 24 4 C22 5 20 5 18 4" />
+      <path d="M24 4 L27 2 M24 4 L27 6" />
+    </g>
+  </defs>
+
+  <rect width="512" height="512" fill="#f4f0e6" />
+  <rect width="512" height="512" fill="url(#diagonal-lanes)" />
+
+  <g transform="rotate(35 256 256)" stroke="#7b6d5e" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.22">
+    <g transform="translate(0 0)">
+      <use href="#motif-leaf" x="-60" y="-8" />
+      <use href="#motif-leaf" x="120" y="-8" />
+      <use href="#motif-leaf" x="300" y="-8" />
+      <use href="#motif-leaf" x="480" y="-8" />
+      <use href="#motif-leaf" x="660" y="-8" />
+    </g>
+    <g transform="translate(0 96)">
+      <use href="#motif-bird" x="-70" y="-6" />
+      <use href="#motif-bird" x="110" y="-6" />
+      <use href="#motif-bird" x="290" y="-6" />
+      <use href="#motif-bird" x="470" y="-6" />
+      <use href="#motif-bird" x="650" y="-6" />
+    </g>
+    <g transform="translate(0 192)">
+      <use href="#motif-reeds" x="-60" y="-4" />
+      <use href="#motif-reeds" x="120" y="-4" />
+      <use href="#motif-reeds" x="300" y="-4" />
+      <use href="#motif-reeds" x="480" y="-4" />
+      <use href="#motif-reeds" x="660" y="-4" />
+    </g>
+    <g transform="translate(0 288)">
+      <use href="#motif-shell" x="-60" y="-6" />
+      <use href="#motif-shell" x="120" y="-6" />
+      <use href="#motif-shell" x="300" y="-6" />
+      <use href="#motif-shell" x="480" y="-6" />
+      <use href="#motif-shell" x="660" y="-6" />
+    </g>
+    <g transform="translate(0 384)">
+      <use href="#motif-waves" x="-70" y="-8" />
+      <use href="#motif-waves" x="110" y="-8" />
+      <use href="#motif-waves" x="290" y="-8" />
+      <use href="#motif-waves" x="470" y="-8" />
+      <use href="#motif-waves" x="650" y="-8" />
+    </g>
+  </g>
+
+  <rect width="512" height="512" filter="url(#paper-grain)" opacity="0.2" />
+</svg>

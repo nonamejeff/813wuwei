@@ -7,7 +7,7 @@ const BIOME_DETAILS = [
     description:
       "On the dry, ancient dunes where fire has been kept at bay, a shady forest of sand live oaks establishes a “green silence.” The closed canopy creates a cool, leaf-littered refuge that holds moisture in the soil, offering a respite from the “bone-dry” heat of the surrounding scrub.",
     whereHtml:
-      "Explore the oak domes within the Citrus Tract of the <a href=\"https://www.floridastateparks.org/parks-and-trails/withlacoochee-state-forest\">Withlacoochee State Forest</a> to the north, or the ridges of <a href=\"https://www.floridastateparks.org/parks-and-trails/highlands-hammock-state-park\">Highlands Hammock State Park</a> to the east."
+      "Explore the oak domes within the Citrus Tract of the <a href=\"https://www.fdacs.gov/Forest-Wildfire/Our-Forests/State-Forests/Withlacoochee-State-Forest\">Withlacoochee State Forest</a> to the north, or the ridges of <a href=\"https://www.floridastateparks.org/parks-and-trails/highlands-hammock-state-park\">Highlands Hammock State Park</a> to the east."
   },
   {
     name: "Wet Prairie",
@@ -23,7 +23,7 @@ const BIOME_DETAILS = [
     description:
       "A pine forest with wet feet, where the water table sits just below the surface, supporting a canopy of slash or pond pine. Here, the vegetation must tolerate both the soak of the wet season and the scorch of the dry, fostering a rich groundcover of wiregrass and fetterbush.",
     whereHtml:
-      "Wander the pine islands at <a href=\"https://www.floridastateparks.org/parks-and-trails/myakka-river-state-park\">Myakka River State Park</a> or the <a href=\"https://www.pascocountyfl.net/parksrec/page/jay-b-starkey-wilderness-park\">Starkey Wilderness Park</a> to the north."
+      "Wander the pine islands at <a href=\"https://www.floridastateparks.org/parks-and-trails/myakka-river-state-park\">Myakka River State Park</a> or the <a href=\"https://www.swfwmd.state.fl.us/recreation/jay-b-starkey-wilderness-park\">Starkey Wilderness Park</a> to the north."
   },
   {
     name: "Upland Pine",
@@ -31,7 +31,7 @@ const BIOME_DETAILS = [
     description:
       "On the rolling red-clay hills, widely spaced longleaf pines stand over a diverse carpet of wiregrass and wildflowers. This high ground is maintained by the regular “cleansing” of fire, which prevents hardwoods from choking out the light and maintains the open savanna.",
     whereHtml:
-      "This community is rare this far south; travel north to the <a href=\"https://www.floridastateparks.org/parks-and-trails/withlacoochee-state-forest\">Withlacoochee State Forest</a> or the <a href=\"https://www.fdacs.gov/Forest-Wildfire/Our-Forests/State-Forests/Goethe-State-Forest\">Goethe State Forest</a> to walk these clay-hill cathedrals."
+      "This community is rare this far south; travel north to the <a href=\"https://www.fdacs.gov/Forest-Wildfire/Our-Forests/State-Forests/Withlacoochee-State-Forest\">Withlacoochee State Forest</a> or the <a href=\"https://www.fdacs.gov/Forest-Wildfire/Our-Forests/State-Forests/Goethe-State-Forest\">Goethe State Forest</a> to walk these clay-hill cathedrals."
   },
   {
     name: "Upland Mixed Woodland",
@@ -47,7 +47,7 @@ const BIOME_DETAILS = [
     description:
       "A stately, closed-canopy forest where diverse hardwoods like southern magnolia and pignut hickory create deep shade and rich leaf litter. Protected from fire, the trees grow tall in the fertile soil, creating a cool, mesic environment that feels older and more permanent than the shifting pine lands.",
     whereHtml:
-      "Walk the shaded trails of the <a href=\"https://www.floridastateparks.org/parks-and-trails/withlacoochee-state-forest\">Withlacoochee State Forest</a> to experience this climax community."
+      "Walk the shaded trails of the <a href=\"https://www.fdacs.gov/Forest-Wildfire/Our-Forests/State-Forests/Withlacoochee-State-Forest\">Withlacoochee State Forest</a> to experience this climax community."
   },
   {
     name: "Shell Mound",
@@ -63,7 +63,7 @@ const BIOME_DETAILS = [
     description:
       "A tension zone between the moist flatwoods and the dry scrub, where scattered pines stand over a thicket of scrub oaks and saw palmetto. Here, the plants must tolerate both the wet and the dry, existing on the sandy rises of the flatlands.",
     whereHtml:
-      "Explore the transition zones at the <a href=\"https://www.pascocountyfl.net/parksrec/page/jay-b-starkey-wilderness-park\">Starkey Wilderness Park</a> or the <a href=\"https://www.hillsboroughcounty.org/en/locations/balm-boyette-scrub-preserve\">Balm-Boyette Scrub Preserve</a> in Hillsborough County."
+      "Explore the transition zones at the <a href=\"https://www.swfwmd.state.fl.us/recreation/jay-b-starkey-wilderness-park\">Starkey Wilderness Park</a> or <a href=\"https://hcfl.gov/locations/balm-boyette-nature-preserve\">Balm Boyette Nature Preserve</a> in Hillsborough County."
   },
   {
     name: "Scrub",
@@ -71,7 +71,7 @@ const BIOME_DETAILS = [
     description:
       "On these ancient, bone-dry dunes, life is stunted and twisted by the scarcity of water and nutrients. It is a harsh, “elfin” forest of scrub oaks and Florida rosemary that endures long periods of silence before being renewed by intense, stand-replacing fire.",
     whereHtml:
-      "See the ancient sand dunes at the <a href=\"https://www.hillsboroughcounty.org/en/locations/balm-boyette-scrub-preserve\">Balm-Boyette Scrub Preserve</a>, the <a href=\"https://www.pascocountyfl.net/parksrec/page/jay-b-starkey-wilderness-park\">Starkey Wilderness Park</a>, or the <a href=\"https://www.floridastateparks.org/parks-and-trails/cedar-key-scrub-state-reserve\">Cedar Key Scrub State Reserve</a> to the north."
+      "See the ancient sand dunes at <a href=\"https://hcfl.gov/locations/balm-boyette-nature-preserve\">Balm Boyette Nature Preserve</a>, <a href=\"https://www.swfwmd.state.fl.us/recreation/jay-b-starkey-wilderness-park\">Starkey Wilderness Park</a>, or the <a href=\"https://www.floridastateparks.org/parks-and-trails/cedar-key-scrub-state-reserve\">Cedar Key Scrub State Reserve</a> to the north."
   },
   {
     name: "Sandhill",
@@ -79,7 +79,7 @@ const BIOME_DETAILS = [
     description:
       "Rolling hills of deep, ancient sand support widely spaced longleaf pines and turkey oaks. It is a sun-washed savanna kept open by frequent fire, where the wiregrass holds the sugar-sand in place.",
     whereHtml:
-      "Visit the rolling high ground of the Citrus Tract in the <a href=\"https://www.floridastateparks.org/parks-and-trails/withlacoochee-state-forest\">Withlacoochee State Forest</a> to see the longleaf pines standing over wiregrass."
+      "Visit the rolling high ground of the Citrus Tract in the <a href=\"https://www.fdacs.gov/Forest-Wildfire/Our-Forests/State-Forests/Withlacoochee-State-Forest\">Withlacoochee State Forest</a> to see the longleaf pines standing over wiregrass."
   },
   {
     name: "Salt Marsh",
@@ -87,7 +87,7 @@ const BIOME_DETAILS = [
     description:
       "A vast, open expanse of cordgrass and needle rush that drinks the tide twice a day. This is the “liquid land” where the boundary between earth and ocean dissolves, fueling the estuary with the energy of decomposition.",
     whereHtml:
-      "While much was lost to development, fringes remain along <a href=\"https://myfwc.com/research/habitat/coastal-wetlands/salt-marsh/\">Tampa Bay</a>, or visit the vast expanses at the <a href=\"https://www.fws.gov/refuge/lower-suwannee\">Lower Suwannee National Wildlife Refuge</a> to the north."
+      "While much was lost to development, fringes remain along <a href=\"https://myfwc.com/research/habitat/coastal-wetlands/\">Tampa Bay</a>, or visit the vast expanses at the <a href=\"https://www.fws.gov/refuge/lower-suwannee\">Lower Suwannee National Wildlife Refuge</a> to the north."
   },
   {
     name: "Pine Rockland",
@@ -95,7 +95,7 @@ const BIOME_DETAILS = [
     description:
       "A jagged, rocky terrain where South Florida slash pines root directly into the eroded limestone. This is a fire-dependent garden of tropical shrubs and wildflowers, thriving on the sun-baked rock where few other forests could survive.",
     whereHtml:
-      "You will not find this rock-bound forest near Tampa; you must travel south to <a href=\"https://www.nps.gov/ever/planyourvisit/long-pine-key.htm\">Long Pine Key</a> in the Everglades or <a href=\"https://www.floridastateparks.org/parks-and-trails/bahia-honda-state-park\">Big Pine Key</a> to see the slash pines rooting in limestone."
+      "You will not find this rock-bound forest near Tampa; you must travel south to <a href=\"https://www.nps.gov/places/long-pine-key-trail.htm\">Long Pine Key</a> in the Everglades or <a href=\"https://www.floridastateparks.org/parks-and-trails/bahia-honda-state-park\">Bahia Honda State Park</a> to see the slash pines rooting in limestone."
   },
   {
     name: "Mesic Hammock",
@@ -111,7 +111,7 @@ const BIOME_DETAILS = [
     description:
       "The quintessential Florida landscape, where tall pines cast long shadows over a floor of saw palmetto and wiregrass. It is a system built on fire; without the cleansing flames, the open, sun-drenched diversity would be lost to the shadows of encroaching hardwoods.",
     whereHtml:
-      "Wander the open pine savannas of the <a href=\"https://www.pascocountyfl.net/parksrec/page/jay-b-starkey-wilderness-park\">Starkey Wilderness Park</a> or <a href=\"https://www.floridastateparks.org/parks-and-trails/myakka-river-state-park\">Myakka River State Park</a>."
+      "Wander the open pine savannas of the <a href=\"https://www.swfwmd.state.fl.us/recreation/jay-b-starkey-wilderness-park\">Starkey Wilderness Park</a> or <a href=\"https://www.floridastateparks.org/parks-and-trails/myakka-river-state-park\">Myakka River State Park</a>."
   },
   {
     name: "Maritime Hammock",
@@ -119,7 +119,7 @@ const BIOME_DETAILS = [
     description:
       "On old, stabilized dunes protected from the immediate salt spray, a canopy of live oak and cabbage palm creates a cool, shady refuge. This forest is sculpted by the wind, its low profile a testament to the shaping power of the sea breeze.",
     whereHtml:
-      "Accessible only by boat, the wind-pruned trees of <a href=\"https://www.floridastateparks.org/parks-and-trails/cayo-costa-state-park\">Cayo Costa State Park</a> or <a href=\"https://www.floridastateparks.org/parks-and-trails/anclote-key-preserve-state-park\">Anclote Key Preserve State Park</a> guard the barrier islands."
+      "Accessible only by boat, the wind-pruned trees of <a href=\"https://www.floridastateparks.org/parks-and-trails/cayo-costa-state-park\">Cayo Costa State Park</a> or <a href=\"https://www.floridastateparks.org/Anclote-Key\">Anclote Key Preserve State Park</a> guard the barrier islands."
   },
   {
     name: "Mangrove Swamp",
@@ -135,7 +135,7 @@ const BIOME_DETAILS = [
     description:
       "A shady, humid forest of oaks and cabbage palms where the limestone lies just beneath the surface. It occupies the wet margins, surviving occasional floods and protecting the interior with a dense, evergreen canopy that rarely burns.",
     whereHtml:
-      "Experience this wet forest along the <a href=\"https://www.sfwmd.gov/our-work/lower-hillsborough\">Lower Hillsborough River Flood Detention Area</a> or at <a href=\"https://www.floridastateparks.org/parks-and-trails/waccasassa-bay-preserve-state-park\">Waccasassa Bay Preserve State Park</a>."
+      "Experience this wet forest along the <a href=\"https://www.swfwmd.state.fl.us/recreation/lower-hillsborough-wilderness-preserve\">Lower Hillsborough Wilderness Preserve</a> or at <a href=\"https://www.floridastateparks.org/parks-and-trails/waccasassa-bay-preserve-state-park\">Waccasassa Bay Preserve State Park</a>."
   },
   {
     name: "Floodplain Swamp",
@@ -143,7 +143,7 @@ const BIOME_DETAILS = [
     description:
       "In the dark, flooded backwaters of the river, buttressed cypress and tupelo trees stand in the tea-colored current. This is a water-bound forest that thrives on the nutrient pulse of the flood, a slow-moving filter for the river system.",
     whereHtml:
-      "Drift through the dark waters of the <a href=\"https://www.floridastateparks.org/learn/withlacoochee-river\">Withlacoochee River</a> to see the buttressed cypress knees."
+      "Drift through the dark waters of the <a href=\"https://www.floridastateparks.org/learn/dynamic-withlacoochee-river\">Withlacoochee River</a> to see the buttressed cypress knees."
   },
   {
     name: "Floodplain Marsh",
@@ -167,7 +167,7 @@ const BIOME_DETAILS = [
     description:
       "A circular cathedral of cypress trees, growing taller toward the center where the peat is deep and the water still. It is a reservoir for the landscape, surviving on the delicate balance between the flood that feeds it and the fire that keeps it open.",
     whereHtml:
-      "Look for these cypress circles in the flatwoods of the <a href=\"https://www.floridastateparks.org/parks-and-trails/withlacoochee-state-forest\">Withlacoochee State Forest</a> or <a href=\"https://myfwc.com/recreation/lead/three-lakes/\">Three Lakes Wildlife Management Area</a>."
+      "Look for these cypress circles in the flatwoods of the <a href=\"https://www.fdacs.gov/Forest-Wildfire/Our-Forests/State-Forests/Withlacoochee-State-Forest\">Withlacoochee State Forest</a> or <a href=\"https://myfwc.com/recreation/lead/three-lakes/\">Three Lakes Wildlife Management Area</a>."
   },
   {
     name: "Depression Marsh",

@@ -143,6 +143,36 @@ button:disabled {
   font-weight: 600;
 }
 
+.biome-info {
+  margin: 18px auto 0;
+  padding: 16px 18px;
+  max-width: 680px;
+  text-align: left;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.biome-info h3 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  color: #111827;
+}
+
+.biome-info p {
+  margin: 0 0 10px;
+  font-weight: 500;
+}
+
+.biome-info a {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.biome-info-where {
+  margin-bottom: 0;
+}
+
 .next-wrap {
   display: flex;
   justify-content: center;

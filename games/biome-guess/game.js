@@ -482,7 +482,7 @@ const pickDistractors = (biome, count) => {
 
 const startRound = () => {
   if (BIOMES.length < 4) {
-    setFeedback("Add at least 4 biomes to play.");
+    setFeedback("Add at least 4 ecological communities to play.");
     return;
   }
 
@@ -583,4 +583,4 @@ window.addEventListener("keydown", (event) => {
   }
 });
 
-nameStepTitle.textContent = "Step 1: Select the biome name.";
+nameStepTitle.textContent = "Step 1: Select the ecological community name.";

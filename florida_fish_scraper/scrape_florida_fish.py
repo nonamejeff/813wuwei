@@ -35,9 +35,11 @@ import json
 import re
 import shutil
 import time
+import hashlib
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
+from urllib.parse import urlparse
 
 import requests
 from playwright.sync_api import sync_playwright
@@ -79,6 +81,18 @@ def slugify(s: str) -> str:
     s = re.sub(r"[^\w\s-]", "", s)
     s = re.sub(r"[\s_-]+", "-", s)
     return s.strip("-")
+
+
+def fish_id_from_url(url: str) -> str:
+    """
+    Stable unique id from fish page URL.
+    Uses last path segment + short sha1 to avoid collisions.
+    """
+    path = urlparse(url).path.rstrip("/")
+    last = path.split("/")[-1] or "fish"
+    last = slugify(last) or "fish"
+    h = hashlib.sha1(url.encode("utf-8")).hexdigest()[:8]
+    return f"{last}-{h}"
 
 
 def safe_mkdir(p: Path) -> None:
@@ -330,11 +344,12 @@ def extract_fish_info(page) -> Tuple[str, str, str, str]:
 
     img_url = ""
     img_selectors = [
-        "article img",
-        "figure img",
-        ".wp-post-image",
-        "img.attachment-full",
-        "img[src*='wp-content/uploads']",
+        "article figure img",
+        "article img.wp-post-image",
+        "article img[class*='wp-image']",
+        "article img[src*='wp-content/uploads']",
+        ".entry-content figure img",
+        ".entry-content img[src*='wp-content/uploads']",
     ]
     for sel in img_selectors:
         try:
@@ -342,6 +357,11 @@ def extract_fish_info(page) -> Tuple[str, str, str, str]:
             if loc.count() == 0:
                 continue
             for i in range(min(loc.count(), 15)):
+                width_attr = loc.nth(i).get_attribute("width") or ""
+                height_attr = loc.nth(i).get_attribute("height") or ""
+                if width_attr.isdigit() and height_attr.isdigit():
+                    if int(width_attr) < 300 or int(height_attr) < 200:
+                        continue
                 candidate = best_image_url_from_img(loc.nth(i))
                 if candidate:
                     img_url = candidate
@@ -432,7 +452,10 @@ def main() -> None:
             robust_goto(page, url)
 
             common, sci, img_url, page_text = extract_fish_info(page)
-            slug = slugify(common) or slugify(url.rstrip("/").split("/")[-1])
+            fid = fish_id_from_url(url)  # unique per fish page
+            nice = slugify(common) if common and common != "Unknown" else ""
+            slug = f"{nice}-{fid}" if nice else fid
+            print(f"       common='{common}' img='{(img_url or '')[:120]}' slug='{slug}'")
 
             fish_habitats = [h for h, urls in habitat_to_urls.items() if url in urls]
 

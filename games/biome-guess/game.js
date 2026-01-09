@@ -7,7 +7,7 @@ const BIOME_DETAILS = [
     description:
       "On ancient dunes where fire has been forgotten, sand live oaks weave a closed canopy that locks in moisture and silence. The deep leaf litter creates a cool refuge from the surrounding heat, a place where the soil slowly builds itself up from the decay of the canopy.",
     whereHtml:
-      "The shaded oak domes of <a href=\"https://hcfl.gov/locations/lithia-springs-conservation-park\">Lithia Springs Conservation Park</a> or the high ground at <a href=\"https://www.floridastateparks.org/parks-and-trails/little-manatee-river-state-park\">Little Manatee River State Park</a>."
+      "The shaded oak domes of <a href=\"https://hcfl.gov/locations/lithia-springs-park\">Lithia Springs Conservation Park</a> or the high ground at <a href=\"https://www.floridastateparks.org/parks-and-trails/little-manatee-river-state-park\">Little Manatee River State Park</a>."
   },
   {
     name: "Wet Prairie",
@@ -23,7 +23,7 @@ const BIOME_DETAILS = [
     description:
       "A pine forest with wet feet, where the water table hovers just below the surface to support a canopy of slash or pond pine. This landscape is shaped by the tension between the soak of the summer rains and the scorch of the dry season fire.",
     whereHtml:
-      "The low pine islands of <a href=\"https://www.swfwmd.state.fl.us/recreation/jay-b-starkey-wilderness-park\">Starkey Wilderness Park</a> or the hydric pine flatwoods of <a href=\"https://brookercreekpreserve.org/\">Brooker Creek Preserve</a>."
+      "The low pine islands of <a href=\"https://www.swfwmd.state.fl.us/recreation/jay-b-starkey-wilderness-park\">Starkey Wilderness Park</a> or the hydric pine flatwoods of <a href=\"https://pinellas.gov/parks/brooker-creek-preserve/\">Brooker Creek Preserve</a>."
   },
   {
     name: "Upland Pine",
@@ -31,7 +31,7 @@ const BIOME_DETAILS = [
     description:
       "On rolling hills, widely spaced longleaf pines stand over a diverse carpet of wiregrass, maintained by the frequent cleansing of fire. This is a landscape of light and air, where the canopy remains open to the sky.",
     whereHtml:
-      "Rare in Tampa; visit the <a href=\"https://floridabirdingtrail.com/trail-sites/citrus-tract-withlacoochee-state-forest/\">Withlacoochee State Forest (Citrus Tract)</a> to the north to see the rolling clay hills."
+      "Rare in Tampa; visit the <a href=\"https://floridabirdingtrail.com/site/withlacoochee-state-forest/\">Withlacoochee State Forest (Citrus Tract)</a> to the north to see the rolling clay hills."
   },
   {
     name: "Upland Mixed Woodland",
@@ -39,7 +39,7 @@ const BIOME_DETAILS = [
     description:
       "A transition zone where pines and southern red oaks share the canopy in an open, park-like setting. It is a landscape of balance, where fire keeps the understory clear and allows grasses to flourish between the hill and the hammock.",
     whereHtml:
-      "The ecotones of <a href=\"https://www.fdacs.gov/Forest-Wildfire/Our-Forests/State-Forests/Withlacoochee-State-Forest\">Withlacoochee State Forest</a> offer the nearest glimpse of this transitional community."
+      "The ecotones of <a href=\"https://floridabirdingtrail.com/site/withlacoochee-state-forest/\">Withlacoochee State Forest</a> offer the nearest glimpse of this transitional community."
   },
   {
     name: "Upland Hardwood Forest",
@@ -47,7 +47,7 @@ const BIOME_DETAILS = [
     description:
       "A stately, closed-canopy forest where hardwoods like magnolia and hickory create deep shade and rich soil. Protected from fire, these trees grow tall and permanent, holding the earth in place with deep roots.",
     whereHtml:
-      "The shaded ravines of <a href=\"https://www.fdacs.gov/Forest-Wildfire/Our-Forests/State-Forests/Withlacoochee-State-Forest\">Withlacoochee State Forest</a>."
+      "The shaded ravines of <a href=\"https://floridabirdingtrail.com/site/withlacoochee-state-forest/\">Withlacoochee State Forest</a>."
   },
   {
     name: "Upland Glade",
@@ -87,7 +87,7 @@ const BIOME_DETAILS = [
     description:
       "In deep, shaded ravines, cool microclimates allow northern hardwoods to mix with southern evergreens on steep inclines. It is a landscape of steep refuge, preserving biological diversity in the shadows.",
     whereHtml:
-      "Restricted to the <a href=\"https://floridabirdingtrail.com/trail-sites/apalachicola-bluffs-and-ravines-preserve/\">Apalachicola River region</a>; not found near Tampa."
+      "Restricted to the Apalachicola River region; not found near Tampa."
   },
   {
     name: "Sinkhole",
@@ -111,7 +111,7 @@ const BIOME_DETAILS = [
     description:
       "Hills built by ancient hands from discarded shells, now supporting a unique forest of calcium-loving plants. These anthropogenic ridges rise from the coast, a testament to civilizations that lived in rhythm with the estuary.",
     whereHtml:
-      "The ancient mounds at <a href=\"https://www.floridastateparks.org/parks-and-trails/madira-bickel-mound-state-archaeological-site\">Madira Bickel Mound State Archaeological Site</a> or <a href=\"https://www.mymanatee.org/departments/parks___natural_resources/parks___preserves/emerson_point_preserve\">Emerson Point Preserve</a>."
+      "The ancient mounds at <a href=\"https://www.floridastateparks.org/parks-and-trails/madira-bickel-mound-state-archaeological-site\">Madira Bickel Mound State Archaeological Site</a> or <a href=\"https://www.mymanatee.org/connect/locations/location-details/emerson-point-preserve\">Emerson Point Preserve</a>."
   },
   {
     name: "Seepage Slope",
@@ -143,7 +143,7 @@ const BIOME_DETAILS = [
     description:
       "Rolling hills of deep sand support widely spaced longleaf pines and turkey oaks. It is a sun-washed savanna kept open by fire, where wiregrass holds the sugar-sand in place.",
     whereHtml:
-      "The high ground of <a href=\"https://brookercreekpreserve.org/\">Brooker Creek Preserve</a> or the <a href=\"https://www.fdacs.gov/Forest-Wildfire/Our-Forests/State-Forests/Withlacoochee-State-Forest\">Withlacoochee State Forest</a>."
+      "The high ground of <a href=\"https://pinellas.gov/parks/brooker-creek-preserve/\">Brooker Creek Preserve</a> or the <a href=\"https://floridabirdingtrail.com/site/withlacoochee-state-forest/\">Withlacoochee State Forest</a>."
   },
   {
     name: "Salt Marsh",
@@ -151,7 +151,7 @@ const BIOME_DETAILS = [
     description:
       "A vast expanse of cordgrass and needle rush that drinks the tide twice a day. This is the liquid land where the boundary between earth and ocean dissolves, fueling the estuary with the energy of decay.",
     whereHtml:
-      "The tidal fringes of <a href=\"https://hcfl.gov/locations/upper-tampa-bay-park\">Upper Tampa Bay Park</a> or <a href=\"https://www.floridastateparks.org/parks-and-trails/cockroach-bay-preserve-state-park\">Cockroach Bay Preserve</a>."
+      "The tidal fringes of <a href=\"https://hcfl.gov/locations/upper-tampa-bay-conservation-park\">Upper Tampa Bay Park</a> or <a href=\"https://www.floridastateparks.org/parks-and-trails/cockroach-bay-preserve-state-park\">Cockroach Bay Preserve</a>."
   },
   {
     name: "Rockland Hammock",
@@ -175,7 +175,7 @@ const BIOME_DETAILS = [
     description:
       "Islands of cool shade in a landscape of sun, these forests of live oak and cabbage palm develop where fire cannot reach. The dense canopy retains moisture, creating a stable sanctuary for ferns and air plants.",
     whereHtml:
-      "The deep woods of <a href=\"https://www.floridastateparks.org/parks-and-trails/hillsborough-river-state-park\">Hillsborough River State Park</a> or <a href=\"https://www.pinellas.gov/location/philippe-park/\">Philippe Park</a>."
+      "The deep woods of <a href=\"https://www.floridastateparks.org/parks-and-trails/hillsborough-river-state-park\">Hillsborough River State Park</a> or <a href=\"https://pinellas.gov/parks/philippe-park/\">Philippe Park</a>."
   },
   {
     name: "Mesic Flatwoods",
@@ -183,7 +183,7 @@ const BIOME_DETAILS = [
     description:
       "The quintessential landscape where tall pines cast long shadows over a floor of saw palmetto and wiregrass. It is a system built on fire; without the flames, the open, sun-drenched diversity is lost to the shadows.",
     whereHtml:
-      "The vast pine lands of <a href=\"https://hcfl.gov/locations/morris-bridge-park\">Morris Bridge Wilderness Park</a> or <a href=\"https://www.swfwmd.state.fl.us/recreation/jay-b-starkey-wilderness-park\">Starkey Wilderness Park</a>."
+      "The vast pine lands of <a href=\"https://hcfl.gov/locations/morris-bridge-conservation-park\">Morris Bridge Wilderness Park</a> or <a href=\"https://www.swfwmd.state.fl.us/recreation/jay-b-starkey-wilderness-park\">Starkey Wilderness Park</a>."
   },
   {
     name: "Marl Prairie",
@@ -199,7 +199,7 @@ const BIOME_DETAILS = [
     description:
       "On old dunes protected from the salt spray, a canopy of live oak and cabbage palm creates a cool refuge. This forest is sculpted by the wind, its low profile a testament to the power of the sea breeze.",
     whereHtml:
-      "The interior of <a href=\"https://www.floridastateparks.org/parks-and-trails/anclote-key-preserve-state-park\">Anclote Key</a> or remnants at <a href=\"https://www.pinellas.gov/location/fort-de-soto-park/\">Fort De Soto Park</a>."
+      "The interior of <a href=\"https://www.floridastateparks.org/Anclote-Key\">Anclote Key</a> or remnants at <a href=\"https://pinellas.gov/parks/fort-de-soto-park/\">Fort De Soto Park</a>."
   },
   {
     name: "Mangrove Swamp",
@@ -207,7 +207,7 @@ const BIOME_DETAILS = [
     description:
       "A forest that walks into the sea, trapping sediments in a tangle of prop roots. It is a quiet, horizontal world where falling leaves fuel the aquatic food web and protect the coast from the tides.",
     whereHtml:
-      "The tunnels of <a href=\"https://weedonislandpreserve.org/\">Weedon Island Preserve</a> or <a href=\"https://hcfl.gov/locations/upper-tampa-bay-park\">Upper Tampa Bay Park</a>."
+      "The tunnels of <a href=\"https://pinellas.gov/parks/weedon-island-preserve/\">Weedon Island Preserve</a> or <a href=\"https://hcfl.gov/locations/upper-tampa-bay-conservation-park\">Upper Tampa Bay Park</a>."
   },
   {
     name: "Limestone Outcrop",
@@ -215,7 +215,7 @@ const BIOME_DETAILS = [
     description:
       "Where the bones of the earth break through the soil, delicate ferns and mosses cling to the cool rock faces. These fragile outcrops offer a moist microclimate protected from the drying sun.",
     whereHtml:
-      "The rock exposures in <a href=\"https://www.fdacs.gov/Forest-Wildfire/Our-Forests/State-Forests/Withlacoochee-State-Forest\">Withlacoochee State Forest</a>."
+      "The rock exposures in <a href=\"https://floridabirdingtrail.com/site/withlacoochee-state-forest/\">Withlacoochee State Forest</a>."
   },
   {
     name: "Keys Tidal Rock Barren",
@@ -287,7 +287,7 @@ const BIOME_DETAILS = [
     description:
       "A small, rounded window into the water table, where rings of grasses mark the slow retreat of the water. These shallow ponds foster a burst of aquatic life before drying down to wait for the rain.",
     whereHtml:
-      "Scattered throughout <a href=\"https://brookercreekpreserve.org/\">Brooker Creek Preserve</a>."
+      "Scattered throughout <a href=\"https://pinellas.gov/parks/brooker-creek-preserve/\">Brooker Creek Preserve</a>."
   },
   {
     name: "Coastal Strand",
@@ -295,7 +295,7 @@ const BIOME_DETAILS = [
     description:
       "Smoothed by salt spray, this community of tough shrubs acts as a living windbreak along the coast. It survives by bending to the breeze, protecting the interior from the sea’s breath.",
     whereHtml:
-      "The dunes of <a href=\"https://www.floridastateparks.org/parks-and-trails/honeymoon-island-state-park\">Honeymoon Island State Park</a> or <a href=\"https://www.pinellas.gov/location/fort-de-soto-park/\">Fort De Soto Park</a>."
+      "The dunes of <a href=\"https://www.floridastateparks.org/honeymoonisland\">Honeymoon Island State Park</a> or <a href=\"https://pinellas.gov/parks/fort-de-soto-park/\">Fort De Soto Park</a>."
   },
   {
     name: "Coastal Interdunal Swale",
@@ -303,7 +303,7 @@ const BIOME_DETAILS = [
     description:
       "In the low troughs between dune ridges, rainwater gathers to create fleeting linear wetlands. These slender marshes shift with the seasons, offering fresh water in a landscape defined by salt.",
     whereHtml:
-      "Between the dunes at <a href=\"https://www.pinellas.gov/location/fort-de-soto-park/\">Fort De Soto Park</a> or <a href=\"https://www.floridastateparks.org/parks-and-trails/anclote-key-preserve-state-park\">Anclote Key</a>."
+      "Between the dunes at <a href=\"https://pinellas.gov/parks/fort-de-soto-park/\">Fort De Soto Park</a> or <a href=\"https://www.floridastateparks.org/Anclote-Key\">Anclote Key</a>."
   },
   {
     name: "Coastal Grassland",
@@ -335,7 +335,7 @@ const BIOME_DETAILS = [
     description:
       "A restless edge where the sea gives up its sand to the wind, built and rebuilt by storms. Life here clings to a landscape that is always in motion, finding stability in the shifting grains.",
     whereHtml:
-      "The shores of <a href=\"https://www.pinellas.gov/location/fort-de-soto-park/\">Fort De Soto Park</a> or <a href=\"https://www.floridastateparks.org/parks-and-trails/caladesi-island-state-park\">Caladesi Island</a>."
+      "The shores of <a href=\"https://pinellas.gov/parks/fort-de-soto-park/\">Fort De Soto Park</a> or <a href=\"https://www.floridastateparks.org/parks-and-trails/caladesi-island-state-park\">Caladesi Island</a>."
   },
   {
     name: "Baygall",
@@ -359,7 +359,7 @@ const BIOME_DETAILS = [
     description:
       "A vast, shallow expanse where water rests before moving on, shifting between lake and meadow. It is a grassy bowl where the sky reflects on the water, hosting a quiet succession of life.",
     whereHtml:
-      "The headwaters of the Myakka at <a href=\"https://www.swfwmd.state.fl.us/recreation/flatford-swamp-tract\">Flatford Swamp</a>."
+      "The headwaters of the Myakka at <a href=\"https://www.swfwmd.state.fl.us/recreation/myakka-river-flatford-swamp\">Flatford Swamp</a>."
   },
   {
     name: "Alluvial Forest",

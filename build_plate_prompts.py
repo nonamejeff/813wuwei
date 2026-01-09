@@ -361,6 +361,7 @@ def build_page_prompt(
     figure: FigureDecision,
     callouts: List[str],
     footer: Optional[str],
+    reference_image_url: Optional[str],
 ) -> str:
     habitat_badge = ", ".join(habitats) if habitats else ""
     allowed_strings: List[str] = [display_name]
@@ -399,6 +400,18 @@ def build_page_prompt(
     if footer:
         layout_lines.append(f"Short footer note at bottom: {footer}.")
 
+    if reference_image_url:
+        layout_lines.append("")
+        layout_lines.extend(
+            [
+                "Reference image:",
+                "A reference image is provided alongside this prompt.",
+                "Use it ONLY for anatomical accuracy (body proportions, fin placement, markings).",
+                "Do NOT copy pose, camera angle, lighting, background, framing, or composition.",
+                "Create a new, original field-guide illustration.",
+            ]
+        )
+
     rules = format_text_rules(allowed_strings)
     return "\n".join(layout_lines + ["", rules])
 
@@ -416,6 +429,7 @@ def build_game_prompt(
     figure: FigureDecision,
     callouts: List[str],
     footer: Optional[str],
+    reference_image_url: Optional[str],
 ) -> str:
     allowed_strings: List[str] = []
     allowed_strings.extend(callouts)
@@ -445,6 +459,18 @@ def build_game_prompt(
         layout_lines.append("No callout labels.")
     if footer:
         layout_lines.append(f"Short footer note at bottom: {footer}.")
+
+    if reference_image_url:
+        layout_lines.append("")
+        layout_lines.extend(
+            [
+                "Reference image:",
+                "A reference image is provided alongside this prompt.",
+                "Use it ONLY for anatomical accuracy (body proportions, fin placement, markings).",
+                "Do NOT copy pose, camera angle, lighting, background, framing, or composition.",
+                "Create a new, original field-guide illustration.",
+            ]
+        )
 
     rules = format_text_rules(allowed_strings)
     return "\n".join(layout_lines + ["", rules])
@@ -483,6 +509,7 @@ def main() -> None:
             scientific_name = record.get("scientific_name", "")
             habitats = sanitize_habitats(record.get("habitats"))
             page_text = record.get("page_text", "") or ""
+            reference_image_url = record.get("image_url") or None
 
             display_name = display_common_name(url)
             fish_id = fish_id_from_url(url)
@@ -503,11 +530,13 @@ def main() -> None:
                 figure,
                 callouts,
                 footer,
+                reference_image_url,
             )
             game_prompt = build_game_prompt(
                 figure,
                 callouts,
                 safe_footer,
+                reference_image_url,
             )
 
             page_path = os.path.join(prompts_dir, f"{fish_id}__page.txt")
@@ -545,6 +574,7 @@ def main() -> None:
                     },
                     "callouts": callouts,
                     "footer": footer,
+                    "reference_image_url": reference_image_url,
                     "prompt_files": {
                         "page": os.path.relpath(page_path, output_root),
                         "game": os.path.relpath(game_path, output_root),

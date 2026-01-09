@@ -10,7 +10,7 @@ import json
 import os
 import re
 from dataclasses import dataclass
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Sequence
 from urllib.parse import urlparse
 
 
@@ -167,6 +167,13 @@ class WordIssue:
     source: str
 
 
+@dataclass
+class ReferenceResolution:
+    path: str
+    found: bool
+    candidates: List[str]
+
+
 def find_input_file(repo_root: str) -> str:
     candidates = [
         os.path.join(repo_root, "output", "fish_index.json"),
@@ -196,6 +203,73 @@ def fish_id_from_url(url: str) -> str:
     segment = last_url_segment(url)
     digest = hashlib.sha1(url.encode("utf-8")).hexdigest()[:8]
     return f"{segment}-{digest}"
+
+
+def resolve_path(path_value: str, repo_root: str) -> str:
+    if not path_value:
+        return ""
+    if os.path.isabs(path_value):
+        return path_value
+    return os.path.join(repo_root, path_value)
+
+
+def repo_relative_path(path_value: str, repo_root: str) -> str:
+    if not path_value:
+        return ""
+    return os.path.relpath(path_value, repo_root)
+
+
+def generate_candidate_paths(
+    base: str,
+    images_all_dir: str,
+    extensions: Sequence[str],
+    candidates: List[str],
+) -> List[str]:
+    existing: List[str] = []
+    if not base:
+        return existing
+    for ext in extensions:
+        filename = f"{base}{ext}"
+        full_path = os.path.join(images_all_dir, filename)
+        candidates.append(full_path)
+        if os.path.isfile(full_path):
+            existing.append(full_path)
+    return existing
+
+
+def resolve_fish_ref_image(
+    rec: dict,
+    images_all_dir: str,
+    repo_root: str,
+) -> ReferenceResolution:
+    candidates: List[str] = []
+    image_file = str(rec.get("image_file", "") or "").strip()
+    if image_file:
+        direct_path = resolve_path(image_file, repo_root)
+        candidates.append(direct_path)
+        if os.path.isfile(direct_path):
+            return ReferenceResolution(path=direct_path, found=True, candidates=candidates)
+
+    slug = str(rec.get("slug", "") or "").strip()
+    image_url = str(rec.get("image_url", "") or "").strip()
+    url_base = os.path.splitext(last_url_segment(image_url))[0] if image_url else ""
+
+    attempt_extensions = [".jpg", ".jpeg", ".png", ".webp"]
+    existing: List[str] = []
+    existing.extend(generate_candidate_paths(slug, images_all_dir, attempt_extensions, candidates))
+    if url_base and url_base != slug:
+        existing.extend(
+            generate_candidate_paths(url_base, images_all_dir, attempt_extensions, candidates)
+        )
+
+    if existing:
+        preference = [".png", ".jpg", ".jpeg", ".webp"]
+        for ext in preference:
+            for path in existing:
+                if path.lower().endswith(ext):
+                    return ReferenceResolution(path=path, found=True, candidates=candidates)
+
+    return ReferenceResolution(path="", found=False, candidates=candidates)
 
 
 def decide_figures(page_text: str) -> FigureDecision:
@@ -354,6 +428,25 @@ def format_text_rules(allowed_strings: List[str]) -> str:
     return "\n".join(lines)
 
 
+def format_image_inputs(
+    style_ref_path: str,
+    fish_ref_path: str,
+    fish_ref_found: bool,
+) -> List[str]:
+    image_lines = [
+        "IMAGE INPUTS (IMPORTANT):",
+        f"- Image A (style reference): {style_ref_path}",
+        "  Use ONLY for layout/style: parchment background, thin border, watercolor texture, "
+        "callout typography, leader lines.",
+        f"- Image B (fish anatomy reference): {fish_ref_path if fish_ref_found else 'MISSING'}",
+        "  Use ONLY for anatomical accuracy: body proportions, fin placement, markings.",
+        "  Do NOT copy pose, camera angle, lighting, background, framing, or composition.",
+    ]
+    if not fish_ref_found:
+        image_lines.append("Image B missing; illustrate from description only.")
+    return image_lines
+
+
 def build_page_prompt(
     display_name: str,
     scientific_name: str,
@@ -361,7 +454,9 @@ def build_page_prompt(
     figure: FigureDecision,
     callouts: List[str],
     footer: Optional[str],
-    reference_image_url: Optional[str],
+    style_ref_path: str,
+    fish_ref_path: str,
+    fish_ref_found: bool,
 ) -> str:
     habitat_badge = ", ".join(habitats) if habitats else ""
     allowed_strings: List[str] = [display_name]
@@ -376,11 +471,18 @@ def build_page_prompt(
         allowed_strings.extend(figure.labels)
 
     layout_lines = [
-        "Create a bird field-guide callout card style illustration plate.",
-        "Clean parchment background, thin ink border, subtle watercolor texture.",
-        f"Title centered at top: {display_name}.",
-        "Italic subtitle under the title with the scientific name.",
+        "Create a clean scientific illustration on a warm off-white parchment paper background with a "
+        "thin ink border, subtle watercolor wash texture, callout labels with thin leader lines, and a "
+        "quiet educational layout with whitespace. Field-guide plate style.",
     ]
+    layout_lines.extend(format_image_inputs(style_ref_path, fish_ref_path, fish_ref_found))
+    layout_lines.extend(
+        [
+            "",
+            f"Title centered at top: {display_name}.",
+            "Italic subtitle under the title with the scientific name.",
+        ]
+    )
     if habitat_badge:
         layout_lines.append(f"Habitat badge/tag: {habitat_badge}.")
     if figure.count == 2:
@@ -400,18 +502,6 @@ def build_page_prompt(
     if footer:
         layout_lines.append(f"Short footer note at bottom: {footer}.")
 
-    if reference_image_url:
-        layout_lines.append("")
-        layout_lines.extend(
-            [
-                "Reference image:",
-                "A reference image is provided alongside this prompt.",
-                "Use it ONLY for anatomical accuracy (body proportions, fin placement, markings).",
-                "Do NOT copy pose, camera angle, lighting, background, framing, or composition.",
-                "Create a new, original field-guide illustration.",
-            ]
-        )
-
     rules = format_text_rules(allowed_strings)
     return "\n".join(layout_lines + ["", rules])
 
@@ -429,7 +519,9 @@ def build_game_prompt(
     figure: FigureDecision,
     callouts: List[str],
     footer: Optional[str],
-    reference_image_url: Optional[str],
+    style_ref_path: str,
+    fish_ref_path: str,
+    fish_ref_found: bool,
 ) -> str:
     allowed_strings: List[str] = []
     allowed_strings.extend(callouts)
@@ -439,10 +531,13 @@ def build_game_prompt(
         allowed_strings.extend(figure.labels)
 
     layout_lines = [
-        "Create a bird field-guide callout card style illustration plate.",
-        "Clean parchment background, thin ink border, subtle watercolor texture.",
-        "Do NOT include the common name, scientific name, or habitat badge.",
+        "Create a clean scientific illustration on a warm off-white parchment paper background with a "
+        "thin ink border, subtle watercolor wash texture, callout labels with thin leader lines, and a "
+        "quiet educational layout with whitespace. Field-guide plate style.",
     ]
+    layout_lines.extend(format_image_inputs(style_ref_path, fish_ref_path, fish_ref_found))
+    layout_lines.append("")
+    layout_lines.append("Do NOT include the common name, scientific name, or habitat badge.")
     if figure.count == 2:
         layout_lines.append(
             f"Two fish figures stacked vertically: {figure.labels[0]} (top), {figure.labels[1]} (bottom)."
@@ -460,18 +555,6 @@ def build_game_prompt(
     if footer:
         layout_lines.append(f"Short footer note at bottom: {footer}.")
 
-    if reference_image_url:
-        layout_lines.append("")
-        layout_lines.extend(
-            [
-                "Reference image:",
-                "A reference image is provided alongside this prompt.",
-                "Use it ONLY for anatomical accuracy (body proportions, fin placement, markings).",
-                "Do NOT copy pose, camera angle, lighting, background, framing, or composition.",
-                "Create a new, original field-guide illustration.",
-            ]
-        )
-
     rules = format_text_rules(allowed_strings)
     return "\n".join(layout_lines + ["", rules])
 
@@ -480,10 +563,33 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Build field-guide plate prompts.")
     parser.add_argument("--offset", type=int, default=0, help="Start offset in fish list")
     parser.add_argument("--limit", type=int, default=None, help="Limit number of fish")
+    parser.add_argument(
+        "--style-ref",
+        default="style ref.png",
+        help="Path to the style reference image",
+    )
+    parser.add_argument(
+        "--images-all-dir",
+        default=os.path.join("output", "images_all"),
+        help="Directory containing all fish reference images",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=os.path.join("output", "plates_prompts"),
+        help="Output directory for prompts",
+    )
     args = parser.parse_args()
 
     repo_root = os.path.dirname(os.path.abspath(__file__))
     input_file = find_input_file(repo_root)
+
+    style_ref_full = resolve_path(args.style_ref, repo_root)
+    if not os.path.isfile(style_ref_full):
+        raise FileNotFoundError(
+            f"Style reference image not found: {args.style_ref}. Provide a valid --style-ref path."
+        )
+
+    images_all_dir = resolve_path(args.images_all_dir, repo_root)
 
     with open(input_file, "r", encoding="utf-8") as handle:
         records = json.load(handle)
@@ -492,7 +598,7 @@ def main() -> None:
     end = start + args.limit if args.limit is not None else len(records)
     subset = records[start:end]
 
-    output_root = os.path.join(repo_root, "output", "plates_prompts")
+    output_root = resolve_path(args.output_dir, repo_root)
     prompts_dir = os.path.join(output_root, "prompts")
     os.makedirs(prompts_dir, exist_ok=True)
 
@@ -503,13 +609,14 @@ def main() -> None:
     prompt_index = []
     needs_review_count = 0
 
+    style_ref_prompt = repo_relative_path(style_ref_full, repo_root)
+
     with open(word_issues_path, "w", encoding="utf-8") as issues_handle:
         for record in subset:
             url = record.get("url", "")
             scientific_name = record.get("scientific_name", "")
             habitats = sanitize_habitats(record.get("habitats"))
             page_text = record.get("page_text", "") or ""
-            reference_image_url = record.get("image_url") or None
 
             display_name = display_common_name(url)
             fish_id = fish_id_from_url(url)
@@ -523,6 +630,9 @@ def main() -> None:
             if footer and footer_is_revealing(footer, display_name, scientific_name):
                 safe_footer = None
 
+            fish_ref = resolve_fish_ref_image(record, images_all_dir, repo_root)
+            fish_ref_prompt = repo_relative_path(fish_ref.path, repo_root) if fish_ref.path else ""
+
             page_prompt = build_page_prompt(
                 display_name,
                 scientific_name,
@@ -530,13 +640,17 @@ def main() -> None:
                 figure,
                 callouts,
                 footer,
-                reference_image_url,
+                style_ref_prompt,
+                fish_ref_prompt,
+                fish_ref.found,
             )
             game_prompt = build_game_prompt(
                 figure,
                 callouts,
                 safe_footer,
-                reference_image_url,
+                style_ref_prompt,
+                fish_ref_prompt,
+                fish_ref.found,
             )
 
             page_path = os.path.join(prompts_dir, f"{fish_id}__page.txt")
@@ -574,7 +688,14 @@ def main() -> None:
                     },
                     "callouts": callouts,
                     "footer": footer,
-                    "reference_image_url": reference_image_url,
+                    "reference_images": {
+                        "style_ref_path": style_ref_prompt,
+                        "fish_ref_path": fish_ref_prompt,
+                    },
+                    "fish_ref_found": fish_ref.found,
+                    "fish_ref_candidates": [
+                        repo_relative_path(path, repo_root) for path in fish_ref.candidates
+                    ],
                     "prompt_files": {
                         "page": os.path.relpath(page_path, output_root),
                         "game": os.path.relpath(game_path, output_root),

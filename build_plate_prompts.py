@@ -225,7 +225,7 @@ def sentence_split(text: str) -> List[str]:
 
 def normalize_sentence(sentence: str) -> str:
     sentence = re.sub(r"\s+", " ", sentence)
-    sentence = re.sub(r"^["'“”]+", "", sentence)
+    sentence = re.sub(r"^[\"'“”]+", "", sentence)
     sentence = re.sub(r"^[Tt]he\s+", "", sentence)
     sentence = sentence.strip(" \t\n\r\f\v\"'“”")
     return sentence

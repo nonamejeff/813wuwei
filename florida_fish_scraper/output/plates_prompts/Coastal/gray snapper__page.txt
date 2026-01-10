@@ -1,0 +1,29 @@
+Create a clean scientific illustration on a warm off-white parchment paper background with a thin ink border, subtle watercolor wash texture, callout labels with thin leader lines, and a quiet educational layout with whitespace. Field-guide plate style.
+IMAGE INPUTS (IMPORTANT):
+- Image A (style reference): florida_fish_scraper/style ref.png
+  Use ONLY for layout/style: parchment background, thin border, watercolor texture, callout typography, leader lines.
+- Image B (fish anatomy reference): florida_fish_scraper/output/Coastal/gray snapper.jpg
+  Use ONLY for anatomical accuracy: body proportions, fin placement, markings.
+  Do NOT copy pose, camera angle, lighting, background, framing, or composition.
+  If Image B is missing, illustrate from description only.
+
+Title centered at top: Florida Museum.
+Italic subtitle under the title with the scientific name.
+Habitat badge/tag: Coastal.
+Two fish figures stacked vertically: Adult (top), Juvenile (bottom).
+Add up to five callout labels with thin leader lines: It has a moderately compressed body and pointed snout and; scales on the side are marked with light orange to; All jaw teeth are canine or canine like and a; gray snapper is a marine species that enters lower reaches.
+Short footer note at bottom: These fish are now part of the Florida Museum ichthyology collection.
+
+TEXT RULES:
+- Render only the exact strings listed below.
+- Florida Museum
+- Lutjanus griseus
+- Coastal
+- It has a moderately compressed body and pointed snout and
+- scales on the side are marked with light orange to
+- All jaw teeth are canine or canine like and a
+- gray snapper is a marine species that enters lower reaches
+- These fish are now part of the Florida Museum ichthyology collection
+- Adult
+- Juvenile
+- If rendering cleanly fails, omit that label.

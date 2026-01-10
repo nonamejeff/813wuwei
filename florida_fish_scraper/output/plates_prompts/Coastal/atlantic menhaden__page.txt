@@ -1,0 +1,28 @@
+Create a clean scientific illustration on a warm off-white parchment paper background with a thin ink border, subtle watercolor wash texture, callout labels with thin leader lines, and a quiet educational layout with whitespace. Field-guide plate style.
+IMAGE INPUTS (IMPORTANT):
+- Image A (style reference): florida_fish_scraper/style ref.png
+  Use ONLY for layout/style: parchment background, thin border, watercolor texture, callout typography, leader lines.
+- Image B (fish anatomy reference): florida_fish_scraper/output/Coastal/atlantic menhaden.jpg
+  Use ONLY for anatomical accuracy: body proportions, fin placement, markings.
+  Do NOT copy pose, camera angle, lighting, background, framing, or composition.
+  If Image B is missing, illustrate from description only.
+
+Title centered at top: Florida Museum.
+Italic subtitle under the title with the scientific name.
+Habitat badge/tag: Coastal.
+Single fish figure centered.
+Add up to five callout labels with thin leader lines: Ross Robertson The Atlantic shad is a member of the; posterior edge of its pelvic fin is rounded and its; Atlantic shad is a marine species that enters rivers creeks; Like the yellowfin menhaden this species is known from lake; Status distribution Status Marine invader Florida Distribution Atlantic Coast VIEW.
+Short footer note at bottom: Brevoortia tyrannus Latrobe 1802 Family Clupeidae The Atlantic menhaden pictured above was photographed in northeast Florida.
+
+TEXT RULES:
+- Render only the exact strings listed below.
+- Florida Museum
+- Brevoortia tyrannus
+- Coastal
+- Ross Robertson The Atlantic shad is a member of the
+- posterior edge of its pelvic fin is rounded and its
+- Atlantic shad is a marine species that enters rivers creeks
+- Like the yellowfin menhaden this species is known from lake
+- Status distribution Status Marine invader Florida Distribution Atlantic Coast VIEW
+- Brevoortia tyrannus Latrobe 1802 Family Clupeidae The Atlantic menhaden pictured above was photographed in northeast Florida
+- If rendering cleanly fails, omit that label.

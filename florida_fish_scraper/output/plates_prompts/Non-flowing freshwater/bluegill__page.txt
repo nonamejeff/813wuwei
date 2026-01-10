@@ -1,0 +1,29 @@
+Create a clean scientific illustration on a warm off-white parchment paper background with a thin ink border, subtle watercolor wash texture, callout labels with thin leader lines, and a quiet educational layout with whitespace. Field-guide plate style.
+IMAGE INPUTS (IMPORTANT):
+- Image A (style reference): florida_fish_scraper/style ref.png
+  Use ONLY for layout/style: parchment background, thin border, watercolor texture, callout typography, leader lines.
+- Image B (fish anatomy reference): florida_fish_scraper/output/Non-flowing freshwater/bluegill.jpg
+  Use ONLY for anatomical accuracy: body proportions, fin placement, markings.
+  Do NOT copy pose, camera angle, lighting, background, framing, or composition.
+  If Image B is missing, illustrate from description only.
+
+Title centered at top: Florida Museum.
+Italic subtitle under the title with the scientific name.
+Habitat badge/tag: Non-flowing freshwater.
+Two fish figures stacked vertically: Adult (top), Juvenile (bottom).
+Add up to five callout labels with thin leader lines: It has dark bars thin and chainlike on small individuals; There is a large black spot near the posterior end; This species has a small mouth with an upper jaw; pectoral fin is long and pointed.
+Short footer note at bottom: Lepomis macrochirus Rafinesque 1819 Family Centrarchidae The photo above shows two breeding male bluegills.
+
+TEXT RULES:
+- Render only the exact strings listed below.
+- Florida Museum
+- Lepomis macrochirus
+- Non-flowing freshwater
+- It has dark bars thin and chainlike on small individuals
+- There is a large black spot near the posterior end
+- This species has a small mouth with an upper jaw
+- pectoral fin is long and pointed
+- Lepomis macrochirus Rafinesque 1819 Family Centrarchidae The photo above shows two breeding male bluegills
+- Adult
+- Juvenile
+- If rendering cleanly fails, omit that label.

@@ -1,0 +1,29 @@
+Create a clean scientific illustration on a warm off-white parchment paper background with a thin ink border, subtle watercolor wash texture, callout labels with thin leader lines, and a quiet educational layout with whitespace. Field-guide plate style.
+IMAGE INPUTS (IMPORTANT):
+- Image A (style reference): florida_fish_scraper/style ref.png
+  Use ONLY for layout/style: parchment background, thin border, watercolor texture, callout typography, leader lines.
+- Image B (fish anatomy reference): florida_fish_scraper/output/Non-flowing freshwater/lined topminnow.jpg
+  Use ONLY for anatomical accuracy: body proportions, fin placement, markings.
+  Do NOT copy pose, camera angle, lighting, background, framing, or composition.
+  If Image B is missing, illustrate from description only.
+
+Title centered at top: Florida Museum.
+Italic subtitle under the title with the scientific name.
+Habitat badge/tag: Non-flowing freshwater.
+Two fish figures stacked vertically: Male (top), Female (bottom).
+Add up to five callout labels with thin leader lines: Females have black stripes on the side of the body; There are between 16 and 19 although typically 16 scales; Lined topminnows can be found in lakes ponds and quiet; Mary s River VIEW SPECIES IN COLLECTION DATABASE NEW GALLERY.
+Short footer note at bottom: Fundulus lineolatus Agassiz 1854 Family Fundulidae The photo above shows a male top and female bottom lined topminnow.
+
+TEXT RULES:
+- Render only the exact strings listed below.
+- Florida Museum
+- Fundulus lineolatus
+- Non-flowing freshwater
+- Females have black stripes on the side of the body
+- There are between 16 and 19 although typically 16 scales
+- Lined topminnows can be found in lakes ponds and quiet
+- Mary s River VIEW SPECIES IN COLLECTION DATABASE NEW GALLERY
+- Fundulus lineolatus Agassiz 1854 Family Fundulidae The photo above shows a male top and female bottom lined topminnow
+- Male
+- Female
+- If rendering cleanly fails, omit that label.

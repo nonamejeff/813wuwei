@@ -1,0 +1,27 @@
+Create a clean scientific illustration on a warm off-white parchment paper background with a thin ink border, subtle watercolor wash texture, callout labels with thin leader lines, and a quiet educational layout with whitespace. Field-guide plate style.
+IMAGE INPUTS (IMPORTANT):
+- Image A (style reference): florida_fish_scraper/style ref.png
+  Use ONLY for layout/style: parchment background, thin border, watercolor texture, callout typography, leader lines.
+- Image B (fish anatomy reference): florida_fish_scraper/output/Coastal/blackchin tilapia.jpg
+  Use ONLY for anatomical accuracy: body proportions, fin placement, markings.
+  Do NOT copy pose, camera angle, lighting, background, framing, or composition.
+  If Image B is missing, illustrate from description only.
+
+Title centered at top: Florida Museum.
+Italic subtitle under the title with the scientific name.
+Habitat badge/tag: Coastal.
+Single fish figure centered.
+Add up to five callout labels with thin leader lines: This species is deep bodied and compressed with olive to; Adults have scattered irregular black blotches on the lower part; This species has a small mouth and the black tilapia; blackchin tilapia inhabits a variety of freshwater estuarine and marine.
+Short footer note at bottom: It is now part of the Florida Museum ichthyology collection UF 187787.
+
+TEXT RULES:
+- Render only the exact strings listed below.
+- Florida Museum
+- Sarotherodon melanotheron
+- Coastal
+- This species is deep bodied and compressed with olive to
+- Adults have scattered irregular black blotches on the lower part
+- This species has a small mouth and the black tilapia
+- blackchin tilapia inhabits a variety of freshwater estuarine and marine
+- It is now part of the Florida Museum ichthyology collection UF 187787
+- If rendering cleanly fails, omit that label.

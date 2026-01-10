@@ -1,0 +1,26 @@
+Create a clean scientific illustration on a warm off-white parchment paper background with a thin ink border, subtle watercolor wash texture, callout labels with thin leader lines, and a quiet educational layout with whitespace. Field-guide plate style.
+IMAGE INPUTS (IMPORTANT):
+- Image A (style reference): florida_fish_scraper/style ref.png
+  Use ONLY for layout/style: parchment background, thin border, watercolor texture, callout typography, leader lines.
+- Image B (fish anatomy reference): florida_fish_scraper/output/Flowing freshwater/bannerfin shiner.jpg
+  Use ONLY for anatomical accuracy: body proportions, fin placement, markings.
+  Do NOT copy pose, camera angle, lighting, background, framing, or composition.
+  If Image B is missing, illustrate from description only.
+
+Title centered at top: Florida Museum.
+Italic subtitle under the title with the scientific name.
+Habitat badge/tag: Flowing freshwater.
+Single fish figure centered.
+Add up to five callout labels with thin leader lines: This species has a small black blotch at the tip; Bannerfin shiners have diamond shaped scales along upper side of; This shiner can be found in sandy runs of medium.
+Short footer note at bottom: Cyrpinella leedsi Fowler 1942 Family Leuciscidae An adult bottom and breeding male top bannerfin shiner are shown above.
+
+TEXT RULES:
+- Render only the exact strings listed below.
+- Florida Museum
+- Cyrpinella leedsi
+- Flowing freshwater
+- This species has a small black blotch at the tip
+- Bannerfin shiners have diamond shaped scales along upper side of
+- This shiner can be found in sandy runs of medium
+- Cyrpinella leedsi Fowler 1942 Family Leuciscidae An adult bottom and breeding male top bannerfin shiner are shown above
+- If rendering cleanly fails, omit that label.

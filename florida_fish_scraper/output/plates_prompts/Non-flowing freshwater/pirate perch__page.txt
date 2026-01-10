@@ -1,0 +1,27 @@
+Create a clean scientific illustration on a warm off-white parchment paper background with a thin ink border, subtle watercolor wash texture, callout labels with thin leader lines, and a quiet educational layout with whitespace. Field-guide plate style.
+IMAGE INPUTS (IMPORTANT):
+- Image A (style reference): florida_fish_scraper/style ref.png
+  Use ONLY for layout/style: parchment background, thin border, watercolor texture, callout typography, leader lines.
+- Image B (fish anatomy reference): florida_fish_scraper/output/Non-flowing freshwater/pirate perch.jpg
+  Use ONLY for anatomical accuracy: body proportions, fin placement, markings.
+  Do NOT copy pose, camera angle, lighting, background, framing, or composition.
+  If Image B is missing, illustrate from description only.
+
+Title centered at top: Florida Museum.
+Italic subtitle under the title with the scientific name.
+Habitat badge/tag: Non-flowing freshwater.
+Single fish figure centered.
+Add up to five callout labels with thin leader lines: It has a large head and mouth with the lower; Its body is dark gray or brown and is typically; There is also a black bar on the caudal fin; Individuals are often found among tree roots along banks of.
+Short footer note at bottom: Aphredoderus sayanus Gilliams 1824 Family Aphredoderidae This pirate perch was collected in Union County Florida in 2014.
+
+TEXT RULES:
+- Render only the exact strings listed below.
+- Florida Museum
+- Aphredoderus sayanus
+- Non-flowing freshwater
+- It has a large head and mouth with the lower
+- Its body is dark gray or brown and is typically
+- There is also a black bar on the caudal fin
+- Individuals are often found among tree roots along banks of
+- Aphredoderus sayanus Gilliams 1824 Family Aphredoderidae This pirate perch was collected in Union County Florida in 2014
+- If rendering cleanly fails, omit that label.

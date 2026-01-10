@@ -1,0 +1,27 @@
+Create a clean scientific illustration on a warm off-white parchment paper background with a thin ink border, subtle watercolor wash texture, callout labels with thin leader lines, and a quiet educational layout with whitespace. Field-guide plate style.
+IMAGE INPUTS (IMPORTANT):
+- Image A (style reference): florida_fish_scraper/style ref.png
+  Use ONLY for layout/style: parchment background, thin border, watercolor texture, callout typography, leader lines.
+- Image B (fish anatomy reference): florida_fish_scraper/output/Non-flowing freshwater/pugnose minnow.jpg
+  Use ONLY for anatomical accuracy: body proportions, fin placement, markings.
+  Do NOT copy pose, camera angle, lighting, background, framing, or composition.
+  If Image B is missing, illustrate from description only.
+
+Title centered at top: Florida Museum.
+Italic subtitle under the title with the scientific name.
+Habitat badge/tag: Non-flowing freshwater.
+Single fish figure centered.
+Add up to five callout labels with thin leader lines: This species has a crosshatched pattern on the back and; Large males in western Florida have a dorsal fin with; Status distribution Status Native freshwater Florida Distribution Western and North; VIEW SPECIES IN COLLECTION DATABASE NEW GALLERY SEARCH Similar Species.
+Short footer note at bottom: These specimens were collected in 2014 and are now part of the Florida Museum ichthyology collection.
+
+TEXT RULES:
+- Render only the exact strings listed below.
+- Florida Museum
+- Opsopoedus emiliae
+- Non-flowing freshwater
+- This species has a crosshatched pattern on the back and
+- Large males in western Florida have a dorsal fin with
+- Status distribution Status Native freshwater Florida Distribution Western and North
+- VIEW SPECIES IN COLLECTION DATABASE NEW GALLERY SEARCH Similar Species
+- These specimens were collected in 2014 and are now part of the Florida Museum ichthyology collection
+- If rendering cleanly fails, omit that label.

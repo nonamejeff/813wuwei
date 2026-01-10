@@ -1,0 +1,28 @@
+Create a clean scientific illustration on a warm off-white parchment paper background with a thin ink border, subtle watercolor wash texture, callout labels with thin leader lines, and a quiet educational layout with whitespace. Field-guide plate style.
+IMAGE INPUTS (IMPORTANT):
+- Image A (style reference): florida_fish_scraper/style ref.png
+  Use ONLY for layout/style: parchment background, thin border, watercolor texture, callout typography, leader lines.
+- Image B (fish anatomy reference): florida_fish_scraper/output/Anadromous/striped bass.jpg
+  Use ONLY for anatomical accuracy: body proportions, fin placement, markings.
+  Do NOT copy pose, camera angle, lighting, background, framing, or composition.
+  If Image B is missing, illustrate from description only.
+
+Title centered at top: Florida Museum.
+Italic subtitle under the title with the scientific name.
+Habitat badge/tag: Anadromous.
+Two fish figures stacked vertically: Adult (top), Juvenile (bottom).
+Add up to five callout labels with thin leader lines: Adults of this species have between six and nine dark; body is smoothly arched pre dorsally and deepest between the; Striped bass migrate upriver from oceans to spawn and can.
+Short footer note at bottom: Morone saxatilis Walbaum 1792 Family Moronidae The photo above shows an adult top and juvenile bottom striped bass.
+
+TEXT RULES:
+- Render only the exact strings listed below.
+- Florida Museum
+- Morone saxatilis
+- Anadromous
+- Adults of this species have between six and nine dark
+- body is smoothly arched pre dorsally and deepest between the
+- Striped bass migrate upriver from oceans to spawn and can
+- Morone saxatilis Walbaum 1792 Family Moronidae The photo above shows an adult top and juvenile bottom striped bass
+- Adult
+- Juvenile
+- If rendering cleanly fails, omit that label.

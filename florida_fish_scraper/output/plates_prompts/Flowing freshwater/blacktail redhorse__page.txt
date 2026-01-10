@@ -1,0 +1,27 @@
+Create a clean scientific illustration on a warm off-white parchment paper background with a thin ink border, subtle watercolor wash texture, callout labels with thin leader lines, and a quiet educational layout with whitespace. Field-guide plate style.
+IMAGE INPUTS (IMPORTANT):
+- Image A (style reference): florida_fish_scraper/style ref.png
+  Use ONLY for layout/style: parchment background, thin border, watercolor texture, callout typography, leader lines.
+- Image B (fish anatomy reference): florida_fish_scraper/output/Flowing freshwater/blacktail redhorse.jpg
+  Use ONLY for anatomical accuracy: body proportions, fin placement, markings.
+  Do NOT copy pose, camera angle, lighting, background, framing, or composition.
+  If Image B is missing, illustrate from description only.
+
+Title centered at top: Florida Museum.
+Italic subtitle under the title with the scientific name.
+Habitat badge/tag: Flowing freshwater.
+Two fish figures stacked vertically: Adult (top), Juvenile (bottom).
+Add up to five callout labels with thin leader lines: It has a slightly U shaped rear edge on the; caudal fin is red with a black submaginal band.
+Short footer note at bottom: Moxostoma poecilurum Jordan 1877 Family Catostomidae The photo above shows an adult top and juvenile bottom blacktail redhorse.
+
+TEXT RULES:
+- Render only the exact strings listed below.
+- Florida Museum
+- Moxostoma poecilurum
+- Flowing freshwater
+- It has a slightly U shaped rear edge on the
+- caudal fin is red with a black submaginal band
+- Moxostoma poecilurum Jordan 1877 Family Catostomidae The photo above shows an adult top and juvenile bottom blacktail redhorse
+- Adult
+- Juvenile
+- If rendering cleanly fails, omit that label.

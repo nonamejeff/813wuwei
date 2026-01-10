@@ -1,0 +1,27 @@
+Create a clean scientific illustration on a warm off-white parchment paper background with a thin ink border, subtle watercolor wash texture, callout labels with thin leader lines, and a quiet educational layout with whitespace. Field-guide plate style.
+IMAGE INPUTS (IMPORTANT):
+- Image A (style reference): florida_fish_scraper/style ref.png
+  Use ONLY for layout/style: parchment background, thin border, watercolor texture, callout typography, leader lines.
+- Image B (fish anatomy reference): florida_fish_scraper/output/Coastal/largescale spinycheek sleeper.jpg
+  Use ONLY for anatomical accuracy: body proportions, fin placement, markings.
+  Do NOT copy pose, camera angle, lighting, background, framing, or composition.
+  If Image B is missing, illustrate from description only.
+
+Title centered at top: Florida Museum.
+Italic subtitle under the title with the scientific name.
+Habitat badge/tag: Coastal.
+Single fish figure centered.
+Add up to five callout labels with thin leader lines: It has an elongate body that is dark brown; This species also has a distinctly paler cream colored area; It has a blunt snout and upturned mouth with a; largescaled spinycheek sleeper is a marine species that enters rivers.
+Short footer note at bottom: Eleotris amblyopsis Cope 1871 Family Eleotridae This largescaled spinycheek sleeper was collected in Volusia County Florida in 2015.
+
+TEXT RULES:
+- Render only the exact strings listed below.
+- Florida Museum
+- Eleotris amblyopsis
+- Coastal
+- It has an elongate body that is dark brown
+- This species also has a distinctly paler cream colored area
+- It has a blunt snout and upturned mouth with a
+- largescaled spinycheek sleeper is a marine species that enters rivers
+- Eleotris amblyopsis Cope 1871 Family Eleotridae This largescaled spinycheek sleeper was collected in Volusia County Florida in 2015
+- If rendering cleanly fails, omit that label.

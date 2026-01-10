@@ -54,7 +54,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--model",
-        default="gpt-4.1-mini",
+        default="gpt-image-1",
         help="OpenAI model name for image generation.",
     )
     parser.add_argument(

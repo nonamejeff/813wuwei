@@ -1,233 +1,59 @@
-"""Generate images from field-guide plate prompt files using OpenAI's Images API."""
+"""Generate plate images from prompt files using OpenAI's Responses API."""
 
 from __future__ import annotations
 
 import argparse
 import base64
-import getpass
 import json
 import mimetypes
 import os
-import re
 import sys
-import urllib.error
-import urllib.request
+import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional
 
-PROMPT_IMAGE_PATTERN = re.compile(r"^- Image (A|B) .*?:\\s*(.+)$")
+from openai import OpenAI
+
+IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
 
 
-@dataclass
-class PromptEntry:
+@dataclass(frozen=True)
+class PromptTask:
     prompt_path: Path
+    slug: str
+    variant: str
     output_path: Path
-
-
-def read_prompt(prompt_path: Path) -> str:
-    return prompt_path.read_text(encoding="utf-8").strip()
-
-
-def find_reference_images(prompt_text: str, repo_root: Path) -> List[Path]:
-    images: List[Path] = []
-    for line in prompt_text.splitlines():
-        match = PROMPT_IMAGE_PATTERN.match(line.strip())
-        if not match:
-            continue
-        image_path = (repo_root / match.group(2)).resolve()
-        if image_path.exists():
-            images.append(image_path)
-    return images
-
-
-def load_prompt_entries(
-    prompt_index_path: Path,
-    output_root: Path,
-    kinds: Iterable[str],
-) -> List[PromptEntry]:
-    data = json.loads(prompt_index_path.read_text(encoding="utf-8"))
-    entries: List[PromptEntry] = []
-    for record in data:
-        prompt_files = record.get("prompt_files", {})
-        for kind in kinds:
-            prompt_rel = prompt_files.get(kind)
-            if not prompt_rel:
-                continue
-            prompt_path = prompt_index_path.parent / prompt_rel
-            output_path = output_root / Path(prompt_rel).with_suffix(".png")
-            entries.append(PromptEntry(prompt_path=prompt_path, output_path=output_path))
-    return entries
-
-
-def build_multipart_payload(
-    fields: List[Tuple[str, str]],
-    image_paths: List[Path],
-    boundary: str,
-) -> bytes:
-    body: List[bytes] = []
-
-    def add_line(line: str) -> None:
-        body.append(line.encode("utf-8"))
-
-    for name, value in fields:
-        add_line(f"--{boundary}")
-        add_line(f'Content-Disposition: form-data; name="{name}"')
-        add_line("")
-        add_line(value)
-
-    for image_path in image_paths:
-        mime_type, _ = mimetypes.guess_type(str(image_path))
-        mime_type = mime_type or "application/octet-stream"
-        add_line(f"--{boundary}")
-        add_line(
-            'Content-Disposition: form-data; name="image[]"; filename="{}"'.format(
-                image_path.name
-            )
-        )
-        add_line(f"Content-Type: {mime_type}")
-        add_line("")
-        body.append(image_path.read_bytes())
-
-    add_line(f"--{boundary}--")
-    add_line("")
-    return b"\r\n".join(body)
-
-
-def request_image(
-    api_key: str,
-    prompt_text: str,
-    image_paths: List[Path],
-    model: str,
-    size: str,
-) -> bytes:
-    if image_paths:
-        boundary = "openai-boundary"
-        fields = [
-            ("model", model),
-            ("prompt", prompt_text),
-            ("size", size),
-            ("n", "1"),
-            ("response_format", "b64_json"),
-        ]
-        payload = build_multipart_payload(fields, image_paths, boundary)
-        request = urllib.request.Request(
-            "https://api.openai.com/v1/images/edits",
-            data=payload,
-            method="POST",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": f"multipart/form-data; boundary={boundary}",
-            },
-        )
-    else:
-        payload = json.dumps(
-            {
-                "model": model,
-                "prompt": prompt_text,
-                "size": size,
-                "n": 1,
-                "response_format": "b64_json",
-            }
-        ).encode("utf-8")
-        request = urllib.request.Request(
-            "https://api.openai.com/v1/images",
-            data=payload,
-            method="POST",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-        )
-    with urllib.request.urlopen(request) as response:
-        data = json.loads(response.read().decode("utf-8"))
-    return base64.b64decode(data["data"][0]["b64_json"])
-
-
-def validate_api_key(api_key: str) -> None:
-    request = urllib.request.Request(
-        "https://api.openai.com/v1/models",
-        method="GET",
-        headers={"Authorization": f"Bearer {api_key}"},
-    )
-    try:
-        with urllib.request.urlopen(request) as response:
-            response.read()
-    except urllib.error.HTTPError as err:
-        error_body = err.read().decode("utf-8", errors="replace")
-        raise RuntimeError(
-            f"OpenAI API key validation failed: {error_body}"
-        ) from err
-
-
-def ensure_parent(path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-
-def generate_images(
-    entries: List[PromptEntry],
-    repo_root: Path,
-    api_key: str,
-    model: str,
-    size: str,
-    overwrite: bool,
-    dry_run: bool,
-) -> None:
-    for entry in entries:
-        if entry.output_path.exists() and not overwrite:
-            print(f"Skipping existing image: {entry.output_path}")
-            continue
-        prompt_text = read_prompt(entry.prompt_path)
-        image_paths = find_reference_images(prompt_text, repo_root)
-        if dry_run:
-            print(f"[DRY RUN] {entry.prompt_path} -> {entry.output_path}")
-            print(f"  references: {[str(p) for p in image_paths]}")
-            continue
-        ensure_parent(entry.output_path)
-        try:
-            image_bytes = request_image(api_key, prompt_text, image_paths, model, size)
-        except urllib.error.HTTPError as err:
-            error_body = err.read().decode("utf-8", errors="replace")
-            raise RuntimeError(
-                f"OpenAI API request failed for {entry.prompt_path}: {error_body}"
-            ) from err
-        entry.output_path.write_bytes(image_bytes)
-        print(f"Wrote image: {entry.output_path}")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate images from field-guide prompt files."
+        description="Generate plate images from prompt files using OpenAI's Responses API."
     )
     parser.add_argument(
-        "--prompt-index",
-        default=os.path.join(
-            "florida_fish_scraper", "output", "plates_prompts", "prompt_index.json"
-        ),
-        help="Path to prompt_index.json generated by build_plate_prompts.py",
+        "--prompts-root",
+        default=os.path.join("output", "plates_prompts"),
+        help="Root directory containing plate prompt files.",
     )
     parser.add_argument(
-        "--prompt-file",
-        action="append",
-        default=[],
-        help="Generate a single image from a prompt file (repeatable).",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default=os.path.join(
-            "florida_fish_scraper", "output", "plates_images"
-        ),
+        "--output-root",
+        default=os.path.join("output", "plates_images"),
         help="Output directory for generated images.",
     )
     parser.add_argument(
-        "--kind",
-        choices=["page", "game", "both"],
-        default="page",
-        help="Which prompt variants to render from prompt_index.json.",
+        "--style-image",
+        default="style ref.png",
+        help="Path to the style reference image.",
+    )
+    parser.add_argument(
+        "--images-root",
+        default="output",
+        help="Root directory to search for fish reference images.",
     )
     parser.add_argument(
         "--model",
-        default="gpt-image-1",
+        default="gpt-4.1-mini",
         help="OpenAI model name for image generation.",
     )
     parser.add_argument(
@@ -236,58 +62,281 @@ def parse_args() -> argparse.Namespace:
         help="Image size for generation (e.g., 1024x1024).",
     )
     parser.add_argument(
-        "--overwrite",
-        action="store_true",
-        help="Overwrite existing image outputs.",
+        "--offset",
+        type=int,
+        default=0,
+        help="Skip the first N prompts before generation.",
     )
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print the planned work without calling the API.",
+        "--limit",
+        type=int,
+        default=None,
+        help="Maximum number of prompts to process.",
+    )
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=1.0,
+        help="Delay in seconds between API attempts.",
+    )
+    parser.add_argument(
+        "--retries",
+        type=int,
+        default=4,
+        help="Number of retries for failed generations.",
     )
     return parser.parse_args()
+
+
+def iter_prompt_files(prompts_root: Path) -> Iterable[Path]:
+    for path in prompts_root.rglob("*.txt"):
+        name = path.name
+        if name.endswith("__page.txt") or name.endswith("__game.txt"):
+            yield path
+
+
+def slug_and_variant(prompt_path: Path) -> tuple[str, str]:
+    name = prompt_path.name
+    if name.endswith("__page.txt"):
+        return name[: -len("__page.txt")], "page"
+    return name[: -len("__game.txt")], "game"
+
+
+def ensure_parent(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+
+def read_text(path: Path) -> str:
+    return path.read_text(encoding="utf-8").strip()
+
+
+def find_fish_reference(slug: str, images_root: Path) -> Optional[Path]:
+    images_all = images_root / "images_all"
+    for ext in IMAGE_EXTENSIONS:
+        candidate = images_all / f"{slug}{ext}"
+        if candidate.exists():
+            return candidate
+
+    matches = sorted(
+        path
+        for path in images_root.rglob(f"{slug}.*")
+        if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
+    )
+    return matches[0] if matches else None
+
+
+def image_to_data_uri(path: Path) -> str:
+    mime_type, _ = mimetypes.guess_type(str(path))
+    mime_type = mime_type or "application/octet-stream"
+    encoded = base64.b64encode(path.read_bytes()).decode("utf-8")
+    return f"data:{mime_type};base64,{encoded}"
+
+
+def build_tasks(
+    prompts_root: Path,
+    output_root: Path,
+    offset: int,
+    limit: Optional[int],
+) -> List[PromptTask]:
+    prompt_paths = sorted(iter_prompt_files(prompts_root))
+    if offset:
+        prompt_paths = prompt_paths[offset:]
+    if limit is not None:
+        prompt_paths = prompt_paths[:limit]
+
+    tasks: List[PromptTask] = []
+    for prompt_path in prompt_paths:
+        slug, variant = slug_and_variant(prompt_path)
+        output_dir = output_root / variant
+        output_path = output_dir / f"{slug}.png"
+        tasks.append(
+            PromptTask(
+                prompt_path=prompt_path,
+                slug=slug,
+                variant=variant,
+                output_path=output_path,
+            )
+        )
+    return tasks
+
+
+def log_attempt(log_path: Path, record: dict) -> None:
+    ensure_parent(log_path)
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def extract_image_base64(response: object) -> Optional[str]:
+    output_items = getattr(response, "output", None)
+    if output_items:
+        for output in output_items:
+            content_items = getattr(output, "content", None)
+            if content_items:
+                for content in content_items:
+                    content_type = getattr(content, "type", None)
+                    if content_type in {"output_image", "image"}:
+                        image_base64 = (
+                            getattr(content, "image_base64", None)
+                            or getattr(content, "b64_json", None)
+                        )
+                        if image_base64:
+                            return image_base64
+            image_base64 = getattr(output, "image_base64", None)
+            if image_base64:
+                return image_base64
+
+    payload = None
+    if hasattr(response, "model_dump"):
+        payload = response.model_dump()
+    elif hasattr(response, "to_dict"):
+        payload = response.to_dict()
+
+    if payload:
+        return find_base64_in_payload(payload)
+    return None
+
+
+def find_base64_in_payload(payload: object) -> Optional[str]:
+    if isinstance(payload, dict):
+        for key in ("image_base64", "b64_json"):
+            value = payload.get(key)
+            if isinstance(value, str):
+                return value
+        for value in payload.values():
+            found = find_base64_in_payload(value)
+            if found:
+                return found
+    elif isinstance(payload, list):
+        for value in payload:
+            found = find_base64_in_payload(value)
+            if found:
+                return found
+    return None
+
+
+def generate_image(
+    client: OpenAI,
+    prompt_text: str,
+    style_data_uri: str,
+    fish_data_uri: Optional[str],
+    model: str,
+    size: str,
+) -> bytes:
+    content = [
+        {"type": "input_text", "text": prompt_text},
+        {"type": "input_image", "image_url": style_data_uri},
+    ]
+    if fish_data_uri:
+        content.append({"type": "input_image", "image_url": fish_data_uri})
+
+    response = client.responses.create(
+        model=model,
+        input=[{"role": "user", "content": content}],
+        tools=[{"type": "image_generation", "size": size}],
+    )
+
+    image_base64 = extract_image_base64(response)
+    if not image_base64:
+        raise RuntimeError("No image data returned from image generation response.")
+    return base64.b64decode(image_base64)
 
 
 def main() -> int:
     args = parse_args()
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if not api_key and not args.dry_run:
-        api_key = getpass.getpass("Enter OPENAI_API_KEY: ").strip()
-    if not api_key and not args.dry_run:
+    if not api_key:
         print("OPENAI_API_KEY is required to call the API.", file=sys.stderr)
         return 1
-    if api_key and not args.dry_run:
-        try:
-            validate_api_key(api_key)
-        except RuntimeError as err:
-            print(str(err), file=sys.stderr)
-            return 1
 
     repo_root = Path(__file__).resolve().parent
-    output_root = Path(args.output_dir)
-    prompt_entries: List[PromptEntry] = []
+    prompts_root = repo_root / args.prompts_root
+    output_root = repo_root / args.output_root
+    images_root = repo_root / args.images_root
+    style_image_path = repo_root / args.style_image
+    log_path = output_root / "render_log.jsonl"
 
-    if args.prompt_file:
-        for prompt_file in args.prompt_file:
-            prompt_path = Path(prompt_file)
-            output_path = output_root / prompt_path.with_suffix(".png").name
-            prompt_entries.append(
-                PromptEntry(prompt_path=prompt_path, output_path=output_path)
+    if not style_image_path.exists():
+        print(f"Style reference image not found: {style_image_path}", file=sys.stderr)
+        return 1
+
+    tasks = build_tasks(prompts_root, output_root, args.offset, args.limit)
+    total = len(tasks)
+    generated = 0
+    skipped = 0
+    failed = 0
+
+    client = OpenAI(api_key=api_key)
+    style_data_uri = image_to_data_uri(style_image_path)
+
+    for task in tasks:
+        if task.output_path.exists():
+            log_attempt(
+                log_path,
+                {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "slug": task.slug,
+                    "variant": task.variant,
+                    "fish_ref_found": False,
+                    "status": "skipped",
+                    "error": None,
+                },
             )
-    else:
-        kinds = ["page", "game"] if args.kind == "both" else [args.kind]
-        prompt_index_path = Path(args.prompt_index)
-        prompt_entries = load_prompt_entries(prompt_index_path, output_root, kinds)
+            skipped += 1
+            continue
 
-    generate_images(
-        entries=prompt_entries,
-        repo_root=repo_root,
-        api_key=api_key,
-        model=args.model,
-        size=args.size,
-        overwrite=args.overwrite,
-        dry_run=args.dry_run,
-    )
+        prompt_text = read_text(task.prompt_path)
+        fish_ref_path = find_fish_reference(task.slug, images_root)
+        fish_data_uri = image_to_data_uri(fish_ref_path) if fish_ref_path else None
+        fish_ref_found = fish_ref_path is not None
+
+        for attempt in range(1, args.retries + 1):
+            try:
+                image_bytes = generate_image(
+                    client=client,
+                    prompt_text=prompt_text,
+                    style_data_uri=style_data_uri,
+                    fish_data_uri=fish_data_uri,
+                    model=args.model,
+                    size=args.size,
+                )
+                ensure_parent(task.output_path)
+                task.output_path.write_bytes(image_bytes)
+                log_attempt(
+                    log_path,
+                    {
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "slug": task.slug,
+                        "variant": task.variant,
+                        "fish_ref_found": fish_ref_found,
+                        "status": "generated",
+                        "error": None,
+                    },
+                )
+                generated += 1
+                time.sleep(args.delay)
+                break
+            except Exception as exc:  # noqa: BLE001 - keep retries flexible
+                log_attempt(
+                    log_path,
+                    {
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "slug": task.slug,
+                        "variant": task.variant,
+                        "fish_ref_found": fish_ref_found,
+                        "status": "failed",
+                        "error": str(exc),
+                    },
+                )
+                if attempt == args.retries:
+                    failed += 1
+                    break
+                time.sleep(args.delay)
+
+    print("Summary:")
+    print(f"  total prompts: {total}")
+    print(f"  generated: {generated}")
+    print(f"  skipped: {skipped}")
+    print(f"  failed: {failed}")
     return 0
 
 

@@ -10,7 +10,8 @@ import json
 import os
 import re
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Sequence
+from pathlib import Path
+from typing import Iterable, List, Optional
 from urllib.parse import urlparse
 
 
@@ -213,61 +214,114 @@ def resolve_path(path_value: str, repo_root: str) -> str:
     return os.path.join(repo_root, path_value)
 
 
-def repo_relative_path(path_value: str, repo_root: str) -> str:
-    if not path_value:
-        return ""
-    return os.path.relpath(path_value, repo_root)
+def path_to_repo_posix(path: Path, repo_root: Path) -> str:
+    try:
+        return path.resolve().relative_to(repo_root.resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
 
 
-def generate_candidate_paths(
-    base: str,
-    images_all_dir: str,
-    extensions: Sequence[str],
-    candidates: List[str],
-) -> List[str]:
-    existing: List[str] = []
-    if not base:
-        return existing
-    for ext in extensions:
-        filename = f"{base}{ext}"
-        full_path = os.path.join(images_all_dir, filename)
-        candidates.append(full_path)
-        if os.path.isfile(full_path):
-            existing.append(full_path)
-    return existing
-
-
-def resolve_fish_ref_image(
-    rec: dict,
-    images_all_dir: str,
-    repo_root: str,
-) -> ReferenceResolution:
+def resolve_fish_ref_image(rec: dict, output_root: Path) -> ReferenceResolution:
+    repo_root = Path(__file__).resolve().parent
     candidates: List[str] = []
+    seen_candidates: set[str] = set()
+
+    def add_candidate(path: Path) -> None:
+        candidate = path_to_repo_posix(path, repo_root)
+        if candidate not in seen_candidates:
+            candidates.append(candidate)
+            seen_candidates.add(candidate)
+
     image_file = str(rec.get("image_file", "") or "").strip()
     if image_file:
-        direct_path = resolve_path(image_file, repo_root)
-        candidates.append(direct_path)
-        if os.path.isfile(direct_path):
-            return ReferenceResolution(path=direct_path, found=True, candidates=candidates)
+        direct_path = Path(image_file)
+        if not direct_path.is_absolute():
+            direct_path = repo_root / direct_path
+        add_candidate(direct_path)
+        if direct_path.is_file():
+            return ReferenceResolution(
+                path=path_to_repo_posix(direct_path, repo_root),
+                found=True,
+                candidates=candidates,
+            )
 
     slug = str(rec.get("slug", "") or "").strip()
     image_url = str(rec.get("image_url", "") or "").strip()
-    url_base = os.path.splitext(last_url_segment(image_url))[0] if image_url else ""
+    url_segment = last_url_segment(image_url) if image_url else ""
+    url_slug = Path(url_segment).stem if url_segment else ""
 
-    attempt_extensions = [".jpg", ".jpeg", ".png", ".webp"]
-    existing: List[str] = []
-    existing.extend(generate_candidate_paths(slug, images_all_dir, attempt_extensions, candidates))
-    if url_base and url_base != slug:
-        existing.extend(
-            generate_candidate_paths(url_base, images_all_dir, attempt_extensions, candidates)
+    extension_priority = [".png", ".jpg", ".jpeg", ".webp"]
+
+    images_all_dir = output_root / "images_all"
+    for ext in extension_priority:
+        candidate = images_all_dir / f"{slug}{ext}"
+        add_candidate(candidate)
+        if candidate.is_file():
+            return ReferenceResolution(
+                path=path_to_repo_posix(candidate, repo_root),
+                found=True,
+                candidates=candidates,
+            )
+
+    if output_root.is_dir():
+        for folder in output_root.iterdir():
+            if not folder.is_dir():
+                continue
+            if folder.name in {"plates_prompts", "images_all"}:
+                continue
+            for ext in extension_priority:
+                candidate = folder / f"{slug}{ext}"
+                add_candidate(candidate)
+                if candidate.is_file():
+                    return ReferenceResolution(
+                        path=path_to_repo_posix(candidate, repo_root),
+                        found=True,
+                        candidates=candidates,
+                    )
+
+    matches: List[Path] = []
+    if output_root.is_dir() and slug:
+        for path in output_root.rglob("*"):
+            if not path.is_file():
+                continue
+            if path.stem == slug or (url_slug and path.stem == url_slug):
+                add_candidate(path)
+                matches.append(path)
+
+    if matches:
+        images_all_path = output_root / "images_all"
+        habitat_dirs = {
+            child.resolve()
+            for child in output_root.iterdir()
+            if child.is_dir() and child.name not in {"plates_prompts", "images_all"}
+        }
+        ext_rank = {ext: index for index, ext in enumerate(extension_priority)}
+
+        def score(path: Path) -> tuple:
+            try:
+                parent = path.parent.resolve()
+            except FileNotFoundError:
+                parent = path.parent
+            if images_all_path in path.resolve().parents:
+                dir_rank = 0
+            elif parent in habitat_dirs:
+                dir_rank = 1
+            else:
+                dir_rank = 2
+            ext = path.suffix.lower()
+            ext_order = ext_rank.get(ext, len(extension_priority))
+            try:
+                size = path.stat().st_size
+            except FileNotFoundError:
+                size = 0
+            return (dir_rank, ext_order, -size)
+
+        best = min(matches, key=score)
+        return ReferenceResolution(
+            path=path_to_repo_posix(best, repo_root),
+            found=True,
+            candidates=candidates,
         )
-
-    if existing:
-        preference = [".png", ".jpg", ".jpeg", ".webp"]
-        for ext in preference:
-            for path in existing:
-                if path.lower().endswith(ext):
-                    return ReferenceResolution(path=path, found=True, candidates=candidates)
 
     return ReferenceResolution(path="", found=False, candidates=candidates)
 
@@ -441,9 +495,8 @@ def format_image_inputs(
         f"- Image B (fish anatomy reference): {fish_ref_path if fish_ref_found else 'MISSING'}",
         "  Use ONLY for anatomical accuracy: body proportions, fin placement, markings.",
         "  Do NOT copy pose, camera angle, lighting, background, framing, or composition.",
+        "  If Image B is missing, illustrate from description only.",
     ]
-    if not fish_ref_found:
-        image_lines.append("Image B missing; illustrate from description only.")
     return image_lines
 
 
@@ -565,13 +618,13 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=None, help="Limit number of fish")
     parser.add_argument(
         "--style-ref",
-        default=os.path.join("florida_fish_scraper", "style ref.png"),
+        default="style ref.png",
         help="Path to the style reference image",
     )
     parser.add_argument(
-        "--images-all-dir",
-        default=os.path.join("output", "images_all"),
-        help="Directory containing all fish reference images",
+        "--output-root",
+        default="output",
+        help="Folder containing images_all and habitat folders",
     )
     parser.add_argument(
         "--output-dir",
@@ -589,7 +642,7 @@ def main() -> None:
             f"Style reference image not found: {args.style_ref}. Provide a valid --style-ref path."
         )
 
-    images_all_dir = resolve_path(args.images_all_dir, repo_root)
+    output_root = Path(resolve_path(args.output_root, repo_root))
 
     with open(input_file, "r", encoding="utf-8") as handle:
         records = json.load(handle)
@@ -598,18 +651,19 @@ def main() -> None:
     end = start + args.limit if args.limit is not None else len(records)
     subset = records[start:end]
 
-    output_root = resolve_path(args.output_dir, repo_root)
-    prompts_dir = os.path.join(output_root, "prompts")
+    output_root_dir = resolve_path(args.output_dir, repo_root)
+    prompts_dir = os.path.join(output_root_dir, "prompts")
     os.makedirs(prompts_dir, exist_ok=True)
 
-    word_issues_path = os.path.join(output_root, "word_issues.log")
+    word_issues_path = os.path.join(output_root_dir, "word_issues.log")
     wordfreq_module = get_wordfreq()
     spellchecker = get_spellchecker()
 
     prompt_index = []
     needs_review_count = 0
 
-    style_ref_prompt = repo_relative_path(style_ref_full, repo_root)
+    style_ref_prompt = Path(style_ref_full).resolve()
+    style_ref_prompt = path_to_repo_posix(style_ref_prompt, Path(repo_root))
 
     with open(word_issues_path, "w", encoding="utf-8") as issues_handle:
         for record in subset:
@@ -630,8 +684,7 @@ def main() -> None:
             if footer and footer_is_revealing(footer, display_name, scientific_name):
                 safe_footer = None
 
-            fish_ref = resolve_fish_ref_image(record, images_all_dir, repo_root)
-            fish_ref_prompt = repo_relative_path(fish_ref.path, repo_root) if fish_ref.path else ""
+            fish_ref = resolve_fish_ref_image(record, output_root)
 
             page_prompt = build_page_prompt(
                 display_name,
@@ -641,7 +694,7 @@ def main() -> None:
                 callouts,
                 footer,
                 style_ref_prompt,
-                fish_ref_prompt,
+                fish_ref.path,
                 fish_ref.found,
             )
             game_prompt = build_game_prompt(
@@ -649,7 +702,7 @@ def main() -> None:
                 callouts,
                 safe_footer,
                 style_ref_prompt,
-                fish_ref_prompt,
+                fish_ref.path,
                 fish_ref.found,
             )
 
@@ -690,15 +743,13 @@ def main() -> None:
                     "footer": footer,
                     "reference_images": {
                         "style_ref_path": style_ref_prompt,
-                        "fish_ref_path": fish_ref_prompt,
+                        "fish_ref_path": fish_ref.path,
                     },
                     "fish_ref_found": fish_ref.found,
-                    "fish_ref_candidates": [
-                        repo_relative_path(path, repo_root) for path in fish_ref.candidates
-                    ],
+                    "fish_ref_candidates": fish_ref.candidates,
                     "prompt_files": {
-                        "page": os.path.relpath(page_path, output_root),
-                        "game": os.path.relpath(game_path, output_root),
+                        "page": os.path.relpath(page_path, output_root_dir),
+                        "game": os.path.relpath(game_path, output_root_dir),
                     },
                     "needs_review": bool(issues),
                     "issues": issues_payload,
@@ -713,9 +764,9 @@ def main() -> None:
         "input_file": os.path.relpath(input_file, repo_root),
     }
 
-    with open(os.path.join(output_root, "prompt_index.json"), "w", encoding="utf-8") as handle:
+    with open(os.path.join(output_root_dir, "prompt_index.json"), "w", encoding="utf-8") as handle:
         json.dump(prompt_index, handle, indent=2, ensure_ascii=False)
-    with open(os.path.join(output_root, "stats.json"), "w", encoding="utf-8") as handle:
+    with open(os.path.join(output_root_dir, "stats.json"), "w", encoding="utf-8") as handle:
         json.dump(stats, handle, indent=2, ensure_ascii=False)
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import getpass
 import json
 import mimetypes
 import os
@@ -143,6 +144,22 @@ def request_image(
     return base64.b64decode(data["data"][0]["b64_json"])
 
 
+def validate_api_key(api_key: str) -> None:
+    request = urllib.request.Request(
+        "https://api.openai.com/v1/models",
+        method="GET",
+        headers={"Authorization": f"Bearer {api_key}"},
+    )
+    try:
+        with urllib.request.urlopen(request) as response:
+            response.read()
+    except urllib.error.HTTPError as err:
+        error_body = err.read().decode("utf-8", errors="replace")
+        raise RuntimeError(
+            f"OpenAI API key validation failed: {error_body}"
+        ) from err
+
+
 def ensure_parent(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -235,8 +252,16 @@ def main() -> int:
     args = parse_args()
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not api_key and not args.dry_run:
+        api_key = getpass.getpass("Enter OPENAI_API_KEY: ").strip()
+    if not api_key and not args.dry_run:
         print("OPENAI_API_KEY is required to call the API.", file=sys.stderr)
         return 1
+    if api_key and not args.dry_run:
+        try:
+            validate_api_key(api_key)
+        except RuntimeError as err:
+            print(str(err), file=sys.stderr)
+            return 1
 
     repo_root = Path(__file__).resolve().parent
     output_root = Path(args.output_dir)

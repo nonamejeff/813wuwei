@@ -182,7 +182,7 @@ def generate_image(
     if fish_base64:
         image_inputs.append(fish_base64)
 
-    response = client.images.edits(
+    response = client.images.edit(
         model=model,
         prompt=prompt_text,
         image=image_inputs,

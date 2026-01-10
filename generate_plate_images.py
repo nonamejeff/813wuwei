@@ -9,6 +9,7 @@ import mimetypes
 import os
 import sys
 import time
+import traceback
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -84,6 +85,11 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=4,
         help="Number of retries for failed generations.",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging for prompt processing.",
     )
     return parser.parse_args()
 
@@ -221,6 +227,7 @@ def generate_image(
     fish_data_uri: Optional[str],
     model: str,
     size: str,
+    debug: bool,
 ) -> bytes:
     content = [
         {"type": "input_text", "text": prompt_text},
@@ -234,6 +241,19 @@ def generate_image(
         input=[{"role": "user", "content": content}],
         tools=[{"type": "image_generation", "size": size}],
     )
+
+    if debug:
+        response_payload = None
+        if hasattr(response, "model_dump"):
+            response_payload = response.model_dump()
+        elif hasattr(response, "to_dict"):
+            response_payload = response.to_dict()
+        elif hasattr(response, "__dict__"):
+            response_payload = response.__dict__
+        if isinstance(response_payload, dict):
+            print(f"OpenAI response keys: {list(response_payload.keys())}")
+        else:
+            print(f"OpenAI response type: {type(response)}")
 
     image_base64 = extract_image_base64(response)
     if not image_base64:
@@ -267,8 +287,14 @@ def main() -> int:
 
     client = OpenAI(api_key=api_key)
     style_data_uri = image_to_data_uri(style_image_path)
+    style_image_size = style_image_path.stat().st_size
+    if args.debug:
+        print(f"Resolved style ref path: {style_image_path}")
+        print(f"Style ref image size (bytes): {style_image_size}")
 
     for task in tasks:
+        if args.debug:
+            print(f"Processing prompt file: {task.prompt_path}")
         if task.output_path.exists():
             log_attempt(
                 log_path,
@@ -288,6 +314,13 @@ def main() -> int:
         fish_ref_path = find_fish_reference(task.slug, images_root)
         fish_data_uri = image_to_data_uri(fish_ref_path) if fish_ref_path else None
         fish_ref_found = fish_ref_path is not None
+        fish_ref_path_value = str(fish_ref_path.resolve()) if fish_ref_path else None
+
+        if args.debug:
+            print(f"Resolved fish ref path: {fish_ref_path_value}")
+            if fish_ref_path:
+                fish_ref_size = fish_ref_path.stat().st_size
+                print(f"Fish ref image size (bytes): {fish_ref_size}")
 
         for attempt in range(1, args.retries + 1):
             try:
@@ -298,6 +331,7 @@ def main() -> int:
                     fish_data_uri=fish_data_uri,
                     model=args.model,
                     size=args.size,
+                    debug=args.debug,
                 )
                 ensure_parent(task.output_path)
                 task.output_path.write_bytes(image_bytes)
@@ -316,17 +350,23 @@ def main() -> int:
                 time.sleep(args.delay)
                 break
             except Exception as exc:  # noqa: BLE001 - keep retries flexible
-                log_attempt(
-                    log_path,
-                    {
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "slug": task.slug,
-                        "variant": task.variant,
-                        "fish_ref_found": fish_ref_found,
-                        "status": "failed",
-                        "error": str(exc),
-                    },
-                )
+                traceback_text = traceback.format_exc()
+                error_record = {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "slug": task.slug,
+                    "variant": task.variant,
+                    "fish_ref_path": fish_ref_path_value,
+                    "fish_ref_found": fish_ref_found,
+                    "status": "failed",
+                    "error": str(exc),
+                    "traceback": traceback_text,
+                }
+                log_attempt(log_path, error_record)
+                print(json.dumps(error_record, ensure_ascii=False))
+                print(f"Error generating image for {task.slug} ({task.variant}): {exc}")
+                print(traceback_text)
+                if args.limit == 1:
+                    raise SystemExit(1)
                 if attempt == args.retries:
                     failed += 1
                     break

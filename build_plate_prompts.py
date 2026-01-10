@@ -618,7 +618,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=None, help="Limit number of fish")
     parser.add_argument(
         "--style-ref",
-        default="style ref.png",
+        default=os.path.join("florida_fish_scraper", "style ref.png"),
         help="Path to the style reference image",
     )
     parser.add_argument(

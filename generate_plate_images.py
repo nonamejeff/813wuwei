@@ -13,10 +13,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Tuple
-
-import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from typing import Iterable, List, Optional, Tuple
 
 PROMPT_IMAGE_PATTERN = re.compile(r"^- Image (A|B) .*?:\\s*(.+)$")
 
@@ -25,7 +22,6 @@ PROMPT_IMAGE_PATTERN = re.compile(r"^- Image (A|B) .*?:\\s*(.+)$")
 class PromptEntry:
     prompt_path: Path
     output_path: Path
-    label: str
 
 
 def read_prompt(prompt_path: Path) -> str:
@@ -59,14 +55,7 @@ def load_prompt_entries(
                 continue
             prompt_path = prompt_index_path.parent / prompt_rel
             output_path = output_root / Path(prompt_rel).with_suffix(".png")
-            label = f"{kind}: {prompt_rel}"
-            entries.append(
-                PromptEntry(
-                    prompt_path=prompt_path,
-                    output_path=output_path,
-                    label=label,
-                )
-            )
+            entries.append(PromptEntry(prompt_path=prompt_path, output_path=output_path))
     return entries
 
 
@@ -239,180 +228,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print the planned work without calling the API.",
     )
-    parser.add_argument(
-        "--gui",
-        action="store_true",
-        help="Launch a GUI to select prompts to generate.",
-    )
     return parser.parse_args()
-
-
-class PromptSelectorApp:
-    def __init__(self, root: tk.Tk) -> None:
-        self.root = root
-        self.root.title("Plate Prompt Image Generator")
-        self.prompt_index_path = tk.StringVar(
-            value=os.path.join(
-                "florida_fish_scraper",
-                "output",
-                "plates_prompts",
-                "prompt_index.json",
-            )
-        )
-        self.output_dir = tk.StringVar(
-            value=os.path.join(
-                "florida_fish_scraper", "output", "plates_images"
-            )
-        )
-        self.model = tk.StringVar(value="gpt-image-1")
-        self.size = tk.StringVar(value="1024x1024")
-        self.kind = tk.StringVar(value="page")
-        self.overwrite = tk.BooleanVar(value=False)
-        self.entries: List[PromptEntry] = []
-        self.api_key = tk.StringVar(value="")
-
-        self._build_ui()
-
-    def _build_ui(self) -> None:
-        frame = ttk.Frame(self.root, padding=12)
-        frame.grid(row=0, column=0, sticky="nsew")
-        self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=1)
-
-        ttk.Label(frame, text="Prompt index:").grid(row=0, column=0, sticky="w")
-        prompt_entry = ttk.Entry(frame, textvariable=self.prompt_index_path, width=60)
-        prompt_entry.grid(row=0, column=1, sticky="ew")
-        ttk.Button(frame, text="Browse", command=self._browse_prompt_index).grid(
-            row=0, column=2, padx=4
-        )
-
-        ttk.Label(frame, text="Output directory:").grid(row=1, column=0, sticky="w")
-        output_entry = ttk.Entry(frame, textvariable=self.output_dir, width=60)
-        output_entry.grid(row=1, column=1, sticky="ew")
-        ttk.Button(frame, text="Browse", command=self._browse_output_dir).grid(
-            row=1, column=2, padx=4
-        )
-
-        ttk.Label(frame, text="API key:").grid(row=2, column=0, sticky="w")
-        ttk.Entry(
-            frame, textvariable=self.api_key, width=60, show="•"
-        ).grid(row=2, column=1, sticky="ew")
-
-        ttk.Label(frame, text="Kind:").grid(row=3, column=0, sticky="w")
-        kind_combo = ttk.Combobox(
-            frame,
-            textvariable=self.kind,
-            values=["page", "game", "both"],
-            state="readonly",
-            width=12,
-        )
-        kind_combo.grid(row=3, column=1, sticky="w")
-
-        ttk.Label(frame, text="Model:").grid(row=4, column=0, sticky="w")
-        ttk.Entry(frame, textvariable=self.model, width=20).grid(
-            row=4, column=1, sticky="w"
-        )
-
-        ttk.Label(frame, text="Size:").grid(row=5, column=0, sticky="w")
-        ttk.Entry(frame, textvariable=self.size, width=20).grid(
-            row=5, column=1, sticky="w"
-        )
-
-        ttk.Checkbutton(frame, text="Overwrite existing", variable=self.overwrite).grid(
-            row=6, column=1, sticky="w"
-        )
-
-        ttk.Button(frame, text="Load prompts", command=self._load_prompts).grid(
-            row=7, column=0, pady=8
-        )
-
-        self.listbox = tk.Listbox(frame, selectmode=tk.EXTENDED, height=15)
-        self.listbox.grid(row=8, column=0, columnspan=3, sticky="nsew")
-        frame.rowconfigure(8, weight=1)
-
-        controls = ttk.Frame(frame)
-        controls.grid(row=9, column=0, columnspan=3, sticky="ew", pady=6)
-        ttk.Button(controls, text="Select all", command=self._select_all).pack(
-            side="left", padx=4
-        )
-        ttk.Button(controls, text="Clear selection", command=self._clear_selection).pack(
-            side="left", padx=4
-        )
-        ttk.Button(controls, text="Generate selected", command=self._generate).pack(
-            side="right", padx=4
-        )
-
-        frame.columnconfigure(1, weight=1)
-
-    def _browse_prompt_index(self) -> None:
-        path = filedialog.askopenfilename(
-            title="Select prompt_index.json",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
-        )
-        if path:
-            self.prompt_index_path.set(path)
-
-    def _browse_output_dir(self) -> None:
-        path = filedialog.askdirectory(title="Select output directory")
-        if path:
-            self.output_dir.set(path)
-
-    def _load_prompts(self) -> None:
-        prompt_index = Path(self.prompt_index_path.get())
-        if not prompt_index.exists():
-            messagebox.showerror("Missing file", "prompt_index.json not found.")
-            return
-        kind = self.kind.get()
-        kinds = ["page", "game"] if kind == "both" else [kind]
-        self.entries = load_prompt_entries(
-            prompt_index, Path(self.output_dir.get()), kinds
-        )
-        self.listbox.delete(0, tk.END)
-        for entry in self.entries:
-            self.listbox.insert(tk.END, entry.label)
-
-    def _select_all(self) -> None:
-        self.listbox.select_set(0, tk.END)
-
-    def _clear_selection(self) -> None:
-        self.listbox.select_clear(0, tk.END)
-
-    def _generate(self) -> None:
-        selected_indices = list(self.listbox.curselection())
-        if not selected_indices:
-            messagebox.showinfo("No selection", "Select at least one prompt to run.")
-            return
-        api_key = self.api_key.get().strip()
-        if not api_key:
-            messagebox.showerror(
-                "Missing API key", "Enter your OpenAI API key to continue."
-            )
-            return
-        entries = [self.entries[i] for i in selected_indices]
-        try:
-            generate_images(
-                entries=entries,
-                repo_root=Path(__file__).resolve().parent,
-                api_key=api_key,
-                model=self.model.get(),
-                size=self.size.get(),
-                overwrite=self.overwrite.get(),
-                dry_run=False,
-            )
-        except RuntimeError as error:
-            messagebox.showerror("Generation failed", str(error))
-            return
-        messagebox.showinfo("Done", "Selected prompts generated successfully.")
 
 
 def main() -> int:
     args = parse_args()
-    if args.gui:
-        root = tk.Tk()
-        app = PromptSelectorApp(root)
-        root.mainloop()
-        return 0
-
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not api_key and not args.dry_run:
         print("OPENAI_API_KEY is required to call the API.", file=sys.stderr)
@@ -427,11 +247,7 @@ def main() -> int:
             prompt_path = Path(prompt_file)
             output_path = output_root / prompt_path.with_suffix(".png").name
             prompt_entries.append(
-                PromptEntry(
-                    prompt_path=prompt_path,
-                    output_path=output_path,
-                    label=prompt_path.name,
-                )
+                PromptEntry(prompt_path=prompt_path, output_path=output_path)
             )
     else:
         kinds = ["page", "game"] if args.kind == "both" else [args.kind]

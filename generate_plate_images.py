@@ -130,9 +130,8 @@ def find_fish_reference(slug: str, images_root: Path) -> Optional[Path]:
     return matches[0] if matches else None
 
 
-def image_to_base64(path: Path) -> str:
-    encoded = base64.b64encode(path.read_bytes()).decode("utf-8")
-    return encoded
+def image_to_bytes(path: Path) -> bytes:
+    return path.read_bytes()
 
 
 def build_tasks(
@@ -172,15 +171,15 @@ def log_attempt(log_path: Path, record: dict) -> None:
 def generate_image(
     client: OpenAI,
     prompt_text: str,
-    style_base64: str,
-    fish_base64: Optional[str],
+    style_bytes: bytes,
+    fish_bytes: Optional[bytes],
     model: str,
     size: str,
     debug: bool,
 ) -> bytes:
-    image_inputs = [style_base64]
-    if fish_base64:
-        image_inputs.append(fish_base64)
+    image_inputs = [style_bytes]
+    if fish_bytes:
+        image_inputs.append(fish_bytes)
 
     response = client.images.edit(
         model=model,
@@ -236,7 +235,7 @@ def main() -> int:
     failed = 0
 
     client = OpenAI(api_key=api_key)
-    style_base64 = image_to_base64(style_image_path)
+    style_bytes = image_to_bytes(style_image_path)
     style_image_size = style_image_path.stat().st_size
     if args.debug:
         print(f"Resolved style ref path: {style_image_path}")
@@ -262,7 +261,7 @@ def main() -> int:
 
         prompt_text = read_text(task.prompt_path)
         fish_ref_path = find_fish_reference(task.slug, images_root)
-        fish_base64 = image_to_base64(fish_ref_path) if fish_ref_path else None
+        fish_bytes = image_to_bytes(fish_ref_path) if fish_ref_path else None
         fish_ref_found = fish_ref_path is not None
         fish_ref_path_value = str(fish_ref_path.resolve()) if fish_ref_path else None
 
@@ -277,8 +276,8 @@ def main() -> int:
                 image_bytes = generate_image(
                     client=client,
                     prompt_text=prompt_text,
-                    style_base64=style_base64,
-                    fish_base64=fish_base64,
+                    style_bytes=style_bytes,
+                    fish_bytes=fish_bytes,
                     model=args.model,
                     size=args.size,
                     debug=args.debug,

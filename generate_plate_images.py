@@ -1,11 +1,10 @@
-"""Generate plate images from prompt files using OpenAI's Responses API."""
+"""Generate plate images from prompt files using OpenAI's Images API."""
 
 from __future__ import annotations
 
 import argparse
 import base64
 import json
-import mimetypes
 import os
 import sys
 import time
@@ -30,7 +29,7 @@ class PromptTask:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate plate images from prompt files using OpenAI's Responses API."
+        description="Generate plate images from prompt files using OpenAI's Images API."
     )
     parser.add_argument(
         "--prompts-root",
@@ -131,11 +130,9 @@ def find_fish_reference(slug: str, images_root: Path) -> Optional[Path]:
     return matches[0] if matches else None
 
 
-def image_to_data_uri(path: Path) -> str:
-    mime_type, _ = mimetypes.guess_type(str(path))
-    mime_type = mime_type or "application/octet-stream"
+def image_to_base64(path: Path) -> str:
     encoded = base64.b64encode(path.read_bytes()).decode("utf-8")
-    return f"data:{mime_type};base64,{encoded}"
+    return encoded
 
 
 def build_tasks(
@@ -172,74 +169,24 @@ def log_attempt(log_path: Path, record: dict) -> None:
         handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
-def extract_image_base64(response: object) -> Optional[str]:
-    output_items = getattr(response, "output", None)
-    if output_items:
-        for output in output_items:
-            content_items = getattr(output, "content", None)
-            if content_items:
-                for content in content_items:
-                    content_type = getattr(content, "type", None)
-                    if content_type in {"output_image", "image"}:
-                        image_base64 = (
-                            getattr(content, "image_base64", None)
-                            or getattr(content, "b64_json", None)
-                        )
-                        if image_base64:
-                            return image_base64
-            image_base64 = getattr(output, "image_base64", None)
-            if image_base64:
-                return image_base64
-
-    payload = None
-    if hasattr(response, "model_dump"):
-        payload = response.model_dump()
-    elif hasattr(response, "to_dict"):
-        payload = response.to_dict()
-
-    if payload:
-        return find_base64_in_payload(payload)
-    return None
-
-
-def find_base64_in_payload(payload: object) -> Optional[str]:
-    if isinstance(payload, dict):
-        for key in ("image_base64", "b64_json"):
-            value = payload.get(key)
-            if isinstance(value, str):
-                return value
-        for value in payload.values():
-            found = find_base64_in_payload(value)
-            if found:
-                return found
-    elif isinstance(payload, list):
-        for value in payload:
-            found = find_base64_in_payload(value)
-            if found:
-                return found
-    return None
-
-
 def generate_image(
     client: OpenAI,
     prompt_text: str,
-    style_data_uri: str,
-    fish_data_uri: Optional[str],
+    style_base64: str,
+    fish_base64: Optional[str],
     model: str,
     size: str,
     debug: bool,
 ) -> bytes:
-    content = [
-        {"type": "input_text", "text": prompt_text},
-        {"type": "input_image", "image_url": style_data_uri},
-    ]
-    if fish_data_uri:
-        content.append({"type": "input_image", "image_url": fish_data_uri})
+    image_inputs = [style_base64]
+    if fish_base64:
+        image_inputs.append(fish_base64)
 
-    response = client.responses.create(
+    response = client.images.generate(
         model=model,
-        input=[{"role": "user", "content": content}],
-        tools=[{"type": "image_generation", "size": size}],
+        prompt=prompt_text,
+        image=image_inputs,
+        size=size,
     )
 
     if debug:
@@ -255,7 +202,10 @@ def generate_image(
         else:
             print(f"OpenAI response type: {type(response)}")
 
-    image_base64 = extract_image_base64(response)
+    image_base64 = None
+    if getattr(response, "data", None):
+        image_base64 = response.data[0].b64_json
+
     if not image_base64:
         raise RuntimeError("No image data returned from image generation response.")
     return base64.b64decode(image_base64)
@@ -286,7 +236,7 @@ def main() -> int:
     failed = 0
 
     client = OpenAI(api_key=api_key)
-    style_data_uri = image_to_data_uri(style_image_path)
+    style_base64 = image_to_base64(style_image_path)
     style_image_size = style_image_path.stat().st_size
     if args.debug:
         print(f"Resolved style ref path: {style_image_path}")
@@ -312,7 +262,7 @@ def main() -> int:
 
         prompt_text = read_text(task.prompt_path)
         fish_ref_path = find_fish_reference(task.slug, images_root)
-        fish_data_uri = image_to_data_uri(fish_ref_path) if fish_ref_path else None
+        fish_base64 = image_to_base64(fish_ref_path) if fish_ref_path else None
         fish_ref_found = fish_ref_path is not None
         fish_ref_path_value = str(fish_ref_path.resolve()) if fish_ref_path else None
 
@@ -327,8 +277,8 @@ def main() -> int:
                 image_bytes = generate_image(
                     client=client,
                     prompt_text=prompt_text,
-                    style_data_uri=style_data_uri,
-                    fish_data_uri=fish_data_uri,
+                    style_base64=style_base64,
+                    fish_base64=fish_base64,
                     model=args.model,
                     size=args.size,
                     debug=args.debug,

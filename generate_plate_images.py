@@ -12,7 +12,7 @@ import traceback
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Tuple
 
 from openai import OpenAI
 
@@ -130,8 +130,19 @@ def find_fish_reference(slug: str, images_root: Path) -> Optional[Path]:
     return matches[0] if matches else None
 
 
-def image_to_bytes(path: Path) -> bytes:
-    return path.read_bytes()
+def mime_type_for_image(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix in (".jpg", ".jpeg"):
+        return "image/jpeg"
+    if suffix == ".png":
+        return "image/png"
+    if suffix == ".webp":
+        return "image/webp"
+    raise ValueError(f"Unsupported image extension: {path.suffix}")
+
+
+def image_to_upload(path: Path) -> Tuple[str, bytes, str]:
+    return (path.name, path.read_bytes(), mime_type_for_image(path))
 
 
 def build_tasks(
@@ -171,15 +182,15 @@ def log_attempt(log_path: Path, record: dict) -> None:
 def generate_image(
     client: OpenAI,
     prompt_text: str,
-    style_bytes: bytes,
-    fish_bytes: Optional[bytes],
+    style_path: Path,
+    fish_path: Optional[Path],
     model: str,
     size: str,
     debug: bool,
 ) -> bytes:
-    image_inputs = [style_bytes]
-    if fish_bytes:
-        image_inputs.append(fish_bytes)
+    image_inputs = [image_to_upload(style_path)]
+    if fish_path:
+        image_inputs.append(image_to_upload(fish_path))
 
     response = client.images.edit(
         model=model,
@@ -235,7 +246,6 @@ def main() -> int:
     failed = 0
 
     client = OpenAI(api_key=api_key)
-    style_bytes = image_to_bytes(style_image_path)
     style_image_size = style_image_path.stat().st_size
     if args.debug:
         print(f"Resolved style ref path: {style_image_path}")
@@ -261,7 +271,6 @@ def main() -> int:
 
         prompt_text = read_text(task.prompt_path)
         fish_ref_path = find_fish_reference(task.slug, images_root)
-        fish_bytes = image_to_bytes(fish_ref_path) if fish_ref_path else None
         fish_ref_found = fish_ref_path is not None
         fish_ref_path_value = str(fish_ref_path.resolve()) if fish_ref_path else None
 
@@ -276,8 +285,8 @@ def main() -> int:
                 image_bytes = generate_image(
                     client=client,
                     prompt_text=prompt_text,
-                    style_bytes=style_bytes,
-                    fish_bytes=fish_bytes,
+                    style_path=style_image_path,
+                    fish_path=fish_ref_path,
                     model=args.model,
                     size=args.size,
                     debug=args.debug,

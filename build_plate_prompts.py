@@ -177,10 +177,10 @@ class ReferenceResolution:
 
 def find_input_file(repo_root: str) -> str:
     candidates = [
-        os.path.join(repo_root, "output", "fish_index.json"),
-        os.path.join(repo_root, "fish_index.json"),
         os.path.join(repo_root, "florida_fish_scraper", "output", "fish_index.json"),
         os.path.join(repo_root, "florida_fish_scraper", "fish_index.json"),
+        os.path.join(repo_root, "output", "fish_index.json"),
+        os.path.join(repo_root, "fish_index.json"),
     ]
     for candidate in candidates:
         if os.path.exists(candidate):
@@ -204,6 +204,52 @@ def fish_id_from_url(url: str) -> str:
     segment = last_url_segment(url)
     digest = hashlib.sha1(url.encode("utf-8")).hexdigest()[:8]
     return f"{segment}-{digest}"
+
+
+def fish_id_from_name(name: str, image_path: Path) -> str:
+    normalized = normalize_name(name).replace(" ", "-")
+    digest = hashlib.sha1(str(image_path).encode("utf-8")).hexdigest()[:8]
+    return f"{normalized}-{digest}"
+
+
+def normalize_name(name: str) -> str:
+    cleaned = re.sub(r"[_-]+", " ", name.strip().lower())
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned
+
+
+def display_name_from_image(image_stem: str) -> str:
+    normalized = normalize_name(image_stem)
+    return normalized.title()
+
+
+def collect_habitat_images(output_root: Path) -> List[dict]:
+    habitat_dirs = [
+        "Anadromous",
+        "Coastal",
+        "Diadromous",
+        "Flowing freshwater",
+        "Non-flowing freshwater",
+    ]
+    extensions = {".png", ".jpg", ".jpeg", ".webp"}
+    image_entries: List[dict] = []
+    for habitat in habitat_dirs:
+        habitat_path = output_root / habitat
+        if not habitat_path.is_dir():
+            continue
+        for image_path in habitat_path.iterdir():
+            if not image_path.is_file():
+                continue
+            if image_path.suffix.lower() not in extensions:
+                continue
+            image_entries.append(
+                {
+                    "habitat": habitat,
+                    "image_path": image_path,
+                    "image_stem": image_path.stem,
+                }
+            )
+    return image_entries
 
 
 def resolve_path(path_value: str, repo_root: str) -> str:
@@ -623,12 +669,12 @@ def main() -> None:
     )
     parser.add_argument(
         "--output-root",
-        default="output",
+        default=os.path.join("florida_fish_scraper", "output"),
         help="Folder containing images_all and habitat folders",
     )
     parser.add_argument(
         "--output-dir",
-        default=os.path.join("output", "plates_prompts"),
+        default=os.path.join("florida_fish_scraper", "output", "plates_prompts"),
         help="Output directory for prompts",
     )
     args = parser.parse_args()
@@ -647,13 +693,13 @@ def main() -> None:
     with open(input_file, "r", encoding="utf-8") as handle:
         records = json.load(handle)
 
+    image_entries = collect_habitat_images(output_root)
     start = max(args.offset, 0)
-    end = start + args.limit if args.limit is not None else len(records)
-    subset = records[start:end]
+    end = start + args.limit if args.limit is not None else len(image_entries)
+    subset = image_entries[start:end]
 
     output_root_dir = resolve_path(args.output_dir, repo_root)
-    prompts_dir = os.path.join(output_root_dir, "prompts")
-    os.makedirs(prompts_dir, exist_ok=True)
+    os.makedirs(output_root_dir, exist_ok=True)
 
     word_issues_path = os.path.join(output_root_dir, "word_issues.log")
     wordfreq_module = get_wordfreq()
@@ -665,15 +711,41 @@ def main() -> None:
     style_ref_prompt = Path(style_ref_full).resolve()
     style_ref_prompt = path_to_repo_posix(style_ref_prompt, Path(repo_root))
 
+    record_index: dict[str, dict] = {}
+    for record in records:
+        candidates = []
+        common_name = str(record.get("common_name", "") or "").strip()
+        if common_name:
+            candidates.append(common_name)
+        url = str(record.get("url", "") or "").strip()
+        if url:
+            candidates.append(display_common_name(url))
+        slug = str(record.get("slug", "") or "").strip()
+        if slug:
+            candidates.append(slug.replace("-", " "))
+        for candidate in candidates:
+            normalized = normalize_name(candidate)
+            if normalized and normalized not in record_index:
+                record_index[normalized] = record
+
     with open(word_issues_path, "w", encoding="utf-8") as issues_handle:
-        for record in subset:
+        for image_entry in subset:
+            image_path = image_entry["image_path"]
+            image_stem = image_entry["image_stem"]
+            habitat = image_entry["habitat"]
+
+            normalized_name = normalize_name(image_stem)
+            record = record_index.get(normalized_name, {})
+
             url = record.get("url", "")
             scientific_name = record.get("scientific_name", "")
             habitats = sanitize_habitats(record.get("habitats"))
+            if habitat not in habitats:
+                habitats = habitats + [habitat] if habitats else [habitat]
             page_text = record.get("page_text", "") or ""
 
-            display_name = display_common_name(url)
-            fish_id = fish_id_from_url(url)
+            display_name = record.get("common_name") or display_name_from_image(image_stem)
+            fish_id = fish_id_from_url(url) if url else fish_id_from_name(display_name, image_path)
 
             figure = decide_figures(page_text)
 
@@ -684,7 +756,7 @@ def main() -> None:
             if footer and footer_is_revealing(footer, display_name, scientific_name):
                 safe_footer = None
 
-            fish_ref = resolve_fish_ref_image(record, output_root)
+            fish_ref_path = path_to_repo_posix(image_path.resolve(), Path(repo_root))
 
             page_prompt = build_page_prompt(
                 display_name,
@@ -694,20 +766,22 @@ def main() -> None:
                 callouts,
                 footer,
                 style_ref_prompt,
-                fish_ref.path,
-                fish_ref.found,
+                fish_ref_path,
+                True,
             )
             game_prompt = build_game_prompt(
                 figure,
                 callouts,
                 safe_footer,
                 style_ref_prompt,
-                fish_ref.path,
-                fish_ref.found,
+                fish_ref_path,
+                True,
             )
 
-            page_path = os.path.join(prompts_dir, f"{fish_id}__page.txt")
-            game_path = os.path.join(prompts_dir, f"{fish_id}__game.txt")
+            habitat_dir = os.path.join(output_root_dir, habitat)
+            os.makedirs(habitat_dir, exist_ok=True)
+            page_path = os.path.join(habitat_dir, f"{image_stem}__page.txt")
+            game_path = os.path.join(habitat_dir, f"{image_stem}__game.txt")
 
             with open(page_path, "w", encoding="utf-8") as handle:
                 handle.write(page_prompt)
@@ -743,10 +817,10 @@ def main() -> None:
                     "footer": footer,
                     "reference_images": {
                         "style_ref_path": style_ref_prompt,
-                        "fish_ref_path": fish_ref.path,
+                        "fish_ref_path": fish_ref_path,
                     },
-                    "fish_ref_found": fish_ref.found,
-                    "fish_ref_candidates": fish_ref.candidates,
+                    "fish_ref_found": True,
+                    "fish_ref_candidates": [fish_ref_path],
                     "prompt_files": {
                         "page": os.path.relpath(page_path, output_root_dir),
                         "game": os.path.relpath(game_path, output_root_dir),

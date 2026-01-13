@@ -244,8 +244,8 @@ const canvas = document.getElementById("field");
 const ctx = canvas.getContext("2d");
 
 const fidelityInput = document.getElementById("fidelity");
-const grainIntensityInput = document.getElementById("grainIntensity");
 const kInput = document.getElementById("kValue");
+const motionReadout = document.getElementById("motionReadout");
 const inputText = document.getElementById("inputText");
 const submitText = document.getElementById("submitText");
 const simulateBurst = document.getElementById("simulateBurst");
@@ -269,15 +269,15 @@ const messages = [];
 const maxMessages = 120;
 const decayRate = 0.00035;
 
-const baseCanvas = document.createElement("canvas");
-const baseCtx = baseCanvas.getContext("2d");
-baseCanvas.width = 300;
-baseCanvas.height = 300;
+const outputCanvas = document.createElement("canvas");
+const outputCtx = outputCanvas.getContext("2d", { willReadFrequently: true });
+outputCanvas.width = TARGET_SIZE;
+outputCanvas.height = TARGET_SIZE;
 
-const noiseCanvas = document.createElement("canvas");
-const noiseCtx = noiseCanvas.getContext("2d");
-noiseCanvas.width = 160;
-noiseCanvas.height = 160;
+const workCanvas = document.createElement("canvas");
+const workCtx = workCanvas.getContext("2d", { willReadFrequently: true });
+workCanvas.width = TARGET_SIZE;
+workCanvas.height = TARGET_SIZE;
 
 const targetCanvas = document.createElement("canvas");
 const targetCtx = targetCanvas.getContext("2d");
@@ -286,6 +286,14 @@ targetCanvas.height = TARGET_SIZE;
 
 let targetImageReady = false;
 let targetImageUrl = null;
+let targetLevels = [];
+let gradientField = null;
+let noiseFieldA = null;
+let noiseFieldB = null;
+let stateFieldA = null;
+let stateFieldB = null;
+let outputImageData = outputCtx.createImageData(TARGET_SIZE, TARGET_SIZE);
+let maxGradient = 1;
 
 let clusters = [];
 let lastPrompt = "";
@@ -294,9 +302,6 @@ let lastNegative = NEGATIVE_PROMPT;
 function resize() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-  const grainScale = 0.5;
-  noiseCanvas.width = Math.max(1, Math.floor(canvas.width * grainScale));
-  noiseCanvas.height = Math.max(1, Math.floor(canvas.height * grainScale));
 }
 
 window.addEventListener("resize", resize);
@@ -459,49 +464,6 @@ function buildClusters() {
   });
 
   renderClusterDebug(k);
-  generateBaseTexture();
-}
-
-function generateBaseTexture() {
-  baseCtx.clearRect(0, 0, baseCanvas.width, baseCanvas.height);
-  baseCtx.fillStyle = "rgba(5, 6, 8, 0.9)";
-  baseCtx.fillRect(0, 0, baseCanvas.width, baseCanvas.height);
-  baseCtx.globalCompositeOperation = "lighter";
-
-  clusters.forEach((cluster, idx) => {
-    const weight = cluster.size / Math.max(1, messages.length);
-    const px = hashToUnit(`${idx}-x`) * baseCanvas.width;
-    const py = hashToUnit(`${idx}-y`) * baseCanvas.height;
-    const radius = 80 + weight * 120;
-    const gradient = baseCtx.createRadialGradient(px, py, radius * 0.1, px, py, radius);
-    const hue = 180 + idx * 35;
-    gradient.addColorStop(0, `hsla(${hue}, 60%, 55%, ${0.4 + weight})`);
-    gradient.addColorStop(1, "rgba(0,0,0,0)");
-    baseCtx.fillStyle = gradient;
-    baseCtx.beginPath();
-    baseCtx.arc(px, py, radius, 0, Math.PI * 2);
-    baseCtx.fill();
-
-    baseCtx.globalAlpha = 0.2 + weight * 0.4;
-    baseCtx.fillStyle = `hsla(${hue + 40}, 40%, 50%, 0.4)`;
-    for (let i = 0; i < 6; i += 1) {
-      const offset = Math.sin((i + 1) * 1.7 + cluster.seed * Math.PI * 2) * 18;
-      baseCtx.beginPath();
-      baseCtx.ellipse(
-        px + offset,
-        py - offset,
-        radius * (0.5 + i * 0.08),
-        radius * (0.2 + i * 0.04),
-        cluster.seed * Math.PI,
-        0,
-        Math.PI * 2
-      );
-      baseCtx.fill();
-    }
-    baseCtx.globalAlpha = 1;
-  });
-
-  baseCtx.globalCompositeOperation = "source-over";
 }
 
 function renderClusterDebug(k) {
@@ -517,106 +479,277 @@ function renderClusterDebug(k) {
   });
 }
 
-function updateNoise() {
-  const intensity = Number.parseFloat(grainIntensityInput.value);
-  const imageData = noiseCtx.createImageData(noiseCanvas.width, noiseCanvas.height);
-  const data = imageData.data;
-  for (let i = 0; i < data.length; i += 4) {
-    const base = 110 + intensity * 40;
-    const range = 80 + intensity * 120;
-    const value = Math.max(0, Math.min(255, base + (Math.random() - 0.5) * range));
-    data[i] = value;
-    data[i + 1] = value;
-    data[i + 2] = value;
-    data[i + 3] = 255;
-  }
-  noiseCtx.putImageData(imageData, 0, 0);
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }
 
-function drawTargetCoherence(t, fidelity) {
-  if (!targetImageReady) {
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function initFields() {
+  const total = TARGET_SIZE * TARGET_SIZE;
+  noiseFieldA = new Float32Array(total);
+  noiseFieldB = new Float32Array(total);
+  stateFieldA = new Float32Array(total);
+  stateFieldB = new Float32Array(total);
+  for (let i = 0; i < total; i += 1) {
+    const seed = Math.random();
+    noiseFieldA[i] = seed;
+    noiseFieldB[i] = seed;
+    stateFieldA[i] = seed;
+    stateFieldB[i] = seed;
+  }
+}
+
+function buildPyramid() {
+  const blurLevels = [0, 3, 8, 18];
+  targetLevels = blurLevels.map((radius) => {
+    workCtx.clearRect(0, 0, TARGET_SIZE, TARGET_SIZE);
+    workCtx.filter = radius ? `blur(${radius}px)` : "none";
+    workCtx.drawImage(targetCanvas, 0, 0, TARGET_SIZE, TARGET_SIZE);
+    workCtx.filter = "none";
+    const imageData = workCtx.getImageData(0, 0, TARGET_SIZE, TARGET_SIZE);
+    const luminance = new Float32Array(TARGET_SIZE * TARGET_SIZE);
+    const data = imageData.data;
+    for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+      const r = data[i] / 255;
+      const g = data[i + 1] / 255;
+      const b = data[i + 2] / 255;
+      luminance[p] = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+    return { data, luminance };
+  });
+}
+
+function computeGradient() {
+  const level = targetLevels[0];
+  if (!level) {
+    gradientField = null;
     return;
   }
-  const alignmentStrength = Math.max(0, Math.min(1, fidelity));
-  const instability = Math.max(0, (fidelity - 0.8) / 0.2);
-  const displacementAmp = 6 + fidelity * 18 + instability * 28;
-  const displacementSpeed = 0.4 + fidelity * 1.6 + instability * 2.8;
-  const stripHeight = Math.max(2, Math.round(8 - fidelity * 5));
-  const targetWidth = targetCanvas.width;
-  const targetHeight = targetCanvas.height;
-  const yScale = targetHeight / canvas.height;
+  const yData = level.luminance;
+  const total = TARGET_SIZE * TARGET_SIZE;
+  const gx = new Float32Array(total);
+  const gy = new Float32Array(total);
+  const tx = new Float32Array(total);
+  const ty = new Float32Array(total);
+  const mag = new Float32Array(total);
+  maxGradient = 0.0001;
 
-  ctx.save();
-  ctx.globalCompositeOperation = "soft-light";
-  ctx.globalAlpha = 0.18 + alignmentStrength * 0.6;
-  ctx.imageSmoothingEnabled = true;
+  for (let y = 0; y < TARGET_SIZE; y += 1) {
+    for (let x = 0; x < TARGET_SIZE; x += 1) {
+      const idx = y * TARGET_SIZE + x;
+      const x0 = Math.max(0, x - 1);
+      const x1 = Math.min(TARGET_SIZE - 1, x + 1);
+      const y0 = Math.max(0, y - 1);
+      const y1 = Math.min(TARGET_SIZE - 1, y + 1);
 
-  for (let y = 0; y < canvas.height; y += stripHeight) {
-    const ySource = y * yScale;
-    const sourceHeight = stripHeight * yScale;
-    const phase = y * 0.03 + t * displacementSpeed;
-    const wobble = Math.sin(phase) + Math.sin(phase * 0.6 + t * 0.4);
-    const jitter = (Math.random() - 0.5) * instability * displacementAmp * 0.6;
-    const dx = wobble * displacementAmp + jitter;
-    const dy = Math.cos(phase * 0.8) * displacementAmp * 0.2 + jitter * 0.2;
-    ctx.drawImage(
-      targetCanvas,
-      0,
-      ySource,
-      targetWidth,
-      sourceHeight,
-      dx,
-      y + dy,
-      canvas.width,
-      stripHeight + 1
-    );
+      const y00 = yData[y0 * TARGET_SIZE + x0];
+      const y01 = yData[y0 * TARGET_SIZE + x];
+      const y02 = yData[y0 * TARGET_SIZE + x1];
+      const y10 = yData[y * TARGET_SIZE + x0];
+      const y12 = yData[y * TARGET_SIZE + x1];
+      const y20 = yData[y1 * TARGET_SIZE + x0];
+      const y21 = yData[y1 * TARGET_SIZE + x];
+      const y22 = yData[y1 * TARGET_SIZE + x1];
+
+      const gxVal = -y00 + y02 - 2 * y10 + 2 * y12 - y20 + y22;
+      const gyVal = y00 + 2 * y01 + y02 - y20 - 2 * y21 - y22;
+      gx[idx] = gxVal;
+      gy[idx] = gyVal;
+      const magnitude = Math.hypot(gxVal, gyVal);
+      mag[idx] = magnitude;
+      if (magnitude > maxGradient) {
+        maxGradient = magnitude;
+      }
+      const txVal = -gyVal;
+      const tyVal = gxVal;
+      const tMag = Math.hypot(txVal, tyVal) || 1;
+      tx[idx] = txVal / tMag;
+      ty[idx] = tyVal / tMag;
+    }
   }
 
-  ctx.restore();
+  gradientField = { gx, gy, tx, ty, mag };
 }
 
-function renderFrame(time) {
-  const t = time * 0.001;
-  const fidelity = Number.parseFloat(fidelityInput.value);
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+function rebuildTargetData() {
+  buildPyramid();
+  computeGradient();
+  initFields();
+}
 
-  const warp = fidelity * 12;
-  const offsetX = Math.sin(t * 0.6) * warp + Math.sin(t * 1.4) * 6;
-  const offsetY = Math.cos(t * 0.5) * warp + Math.sin(t * 1.1) * 4;
-  const scale = 1 + fidelity * 0.03 * Math.sin(t * 0.7);
-  const blurAmount = (1 - fidelity) * 6;
-
-  ctx.save();
-  ctx.filter = `blur(${blurAmount}px)`;
-  ctx.globalAlpha = 0.2 + fidelity * 0.8;
-  ctx.translate(canvas.width / 2 + offsetX, canvas.height / 2 + offsetY);
-  ctx.scale(scale, scale);
-  ctx.drawImage(
-    baseCanvas,
-    -canvas.width / 2,
-    -canvas.height / 2,
-    canvas.width,
-    canvas.height
-  );
-  ctx.restore();
-
-  drawTargetCoherence(t, fidelity);
-
-  updateNoise();
-  ctx.save();
-  ctx.globalAlpha = 0.25 + Number.parseFloat(grainIntensityInput.value) * 0.55;
-  ctx.globalCompositeOperation = "screen";
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(noiseCanvas, 0, 0, canvas.width, canvas.height);
-  ctx.restore();
-
-  ctx.save();
-  ctx.globalAlpha = 0.04 + (1 - fidelity) * 0.06;
-  ctx.fillStyle = "rgba(0,0,0,0.5)";
-  for (let y = 0; y < canvas.height; y += 3) {
-    ctx.fillRect(0, y, canvas.width, 1);
+function wrapCoord(value, max) {
+  let v = value % max;
+  if (v < 0) {
+    v += max;
   }
-  ctx.restore();
+  return v;
+}
+
+function sampleField(field, x, y) {
+  const size = TARGET_SIZE;
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const x1 = wrapCoord(x0 + 1, size);
+  const y1 = wrapCoord(y0 + 1, size);
+  const fx = x - x0;
+  const fy = y - y0;
+
+  const x0w = wrapCoord(x0, size);
+  const y0w = wrapCoord(y0, size);
+  const idx00 = y0w * size + x0w;
+  const idx10 = y0w * size + x1;
+  const idx01 = y1 * size + x0w;
+  const idx11 = y1 * size + x1;
+
+  const v00 = field[idx00];
+  const v10 = field[idx10];
+  const v01 = field[idx01];
+  const v11 = field[idx11];
+  const vx0 = lerp(v00, v10, fx);
+  const vx1 = lerp(v01, v11, fx);
+  return lerp(vx0, vx1, fy);
+}
+
+function updateNoiseField(fidelity, motionScale) {
+  if (!gradientField) {
+    return;
+  }
+  const { tx, ty, mag } = gradientField;
+  const size = TARGET_SIZE;
+  const total = size * size;
+  const advectStrength = 1.6 * motionScale;
+  const injectStrength = 0.08 * (1 - fidelity);
+
+  for (let i = 0; i < total; i += 1) {
+    const x = i % size;
+    const y = Math.floor(i / size);
+    const magNorm = mag[i] / maxGradient;
+    const flowScale = advectStrength * (0.4 + magNorm);
+    const dx = tx[i] * flowScale;
+    const dy = ty[i] * flowScale;
+    const sample = sampleField(noiseFieldA, x - dx, y - dy);
+    const injected = sample + (Math.random() - 0.5) * injectStrength;
+    noiseFieldB[i] = clamp(injected, 0, 1);
+  }
+
+  [noiseFieldA, noiseFieldB] = [noiseFieldB, noiseFieldA];
+}
+
+function updateStateField(fidelity) {
+  if (!targetLevels.length) {
+    return;
+  }
+  const maxIndex = targetLevels.length - 1;
+  const coarseIndex = clamp(Math.round((1 - fidelity) * maxIndex), 0, maxIndex);
+  const coarseY = targetLevels[coarseIndex].luminance;
+  const detailY = targetLevels[0].luminance;
+  const baseStep = 0.01 + fidelity * 0.06;
+  const detailStep = fidelity * fidelity * 0.05;
+
+  const total = TARGET_SIZE * TARGET_SIZE;
+  for (let i = 0; i < total; i += 1) {
+    let state = stateFieldA[i];
+    state += baseStep * (coarseY[i] - state);
+    if (detailStep > 0.001) {
+      state += detailStep * (detailY[i] - state);
+    }
+    stateFieldB[i] = clamp(state, 0, 1);
+  }
+
+  const diffusion = (1 - Math.min(1, Math.abs(fidelity - 0.5) * 2)) * 0.12;
+  if (diffusion > 0.01 && gradientField) {
+    const { tx, ty } = gradientField;
+    const size = TARGET_SIZE;
+    for (let i = 0; i < total; i += 1) {
+      const x = i % size;
+      const y = Math.floor(i / size);
+      const dx = tx[i] * 1.2;
+      const dy = ty[i] * 1.2;
+      const a = sampleField(stateFieldB, x + dx, y + dy);
+      const b = sampleField(stateFieldB, x - dx, y - dy);
+      const avg = (a + b) * 0.5;
+      stateFieldA[i] = lerp(stateFieldB[i], avg, diffusion);
+    }
+  } else {
+    [stateFieldA, stateFieldB] = [stateFieldB, stateFieldA];
+  }
+}
+
+function licNoise(x, y, tx, ty) {
+  const tapCount = 5;
+  let sum = 0;
+  let weight = 0;
+  for (let i = -2; i <= 2; i += 1) {
+    const offset = i * 1.2;
+    const sample = sampleField(noiseFieldA, x + tx * offset, y + ty * offset);
+    const w = 1 - Math.abs(i) / tapCount;
+    sum += sample * w;
+    weight += w;
+  }
+  return sum / weight;
+}
+
+function renderFrame() {
+  const fidelity = Number.parseFloat(fidelityInput.value);
+  const motionScale = (1 - fidelity) ** 2;
+  motionReadout.textContent = motionScale.toFixed(3);
+
+  if (!noiseFieldA || !stateFieldA) {
+    initFields();
+  }
+
+  if (targetImageReady && targetLevels.length) {
+    updateNoiseField(fidelity, motionScale);
+    updateStateField(fidelity);
+
+    const maxIndex = targetLevels.length - 1;
+    const colorIndex = clamp(Math.round((1 - fidelity) * maxIndex), 0, maxIndex);
+    const level = targetLevels[colorIndex];
+    const baseData = level.data;
+    const baseY = level.luminance;
+    const total = TARGET_SIZE * TARGET_SIZE;
+    const grainMix = 0.08 + (1 - fidelity) * 0.35;
+    const { tx, ty } = gradientField || { tx: null, ty: null };
+
+    for (let i = 0; i < total; i += 1) {
+      const x = i % TARGET_SIZE;
+      const y = Math.floor(i / TARGET_SIZE);
+      const tX = tx ? tx[i] : 1;
+      const tY = ty ? ty[i] : 0;
+      const lic = licNoise(x, y, tX, tY);
+      const grainDetail = (lic - 0.5) * 2;
+      const yOut = clamp(stateFieldA[i] + grainDetail * grainMix, 0, 1);
+
+      const dataIndex = i * 4;
+      const r = baseData[dataIndex];
+      const g = baseData[dataIndex + 1];
+      const b = baseData[dataIndex + 2];
+      const ratio = yOut / (baseY[i] + 0.001);
+      outputImageData.data[dataIndex] = clamp(r * ratio, 0, 255);
+      outputImageData.data[dataIndex + 1] = clamp(g * ratio, 0, 255);
+      outputImageData.data[dataIndex + 2] = clamp(b * ratio, 0, 255);
+      outputImageData.data[dataIndex + 3] = 255;
+    }
+  } else {
+    const total = TARGET_SIZE * TARGET_SIZE;
+    for (let i = 0; i < total; i += 1) {
+      const value = clamp(stateFieldA[i] + (noiseFieldA[i] - 0.5) * 0.4, 0, 1);
+      const dataIndex = i * 4;
+      const gray = Math.floor(value * 255);
+      outputImageData.data[dataIndex] = gray;
+      outputImageData.data[dataIndex + 1] = gray;
+      outputImageData.data[dataIndex + 2] = gray;
+      outputImageData.data[dataIndex + 3] = 255;
+    }
+  }
+
+  outputCtx.putImageData(outputImageData, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(outputCanvas, 0, 0, canvas.width, canvas.height);
 
   requestAnimationFrame(renderFrame);
 }
@@ -667,6 +800,7 @@ function drawTargetToCanvas(image) {
   targetCtx.clearRect(0, 0, TARGET_SIZE, TARGET_SIZE);
   targetCtx.drawImage(image, dx, dy, drawWidth, drawHeight);
   targetImageReady = true;
+  rebuildTargetData();
 }
 
 function handleTargetImage(file) {
@@ -688,6 +822,9 @@ function handleTargetImage(file) {
 function clearTargetImage() {
   targetCtx.clearRect(0, 0, TARGET_SIZE, TARGET_SIZE);
   targetImageReady = false;
+  targetLevels = [];
+  gradientField = null;
+  initFields();
   targetPreview.src = "";
   if (targetImageUrl) {
     URL.revokeObjectURL(targetImageUrl);

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Img Gen</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <canvas id="field"></canvas>
+  <div class="dev-panel">
+    <div class="controls">
+      <label class="control">
+        <span>Fidelity</span>
+        <input id="fidelity" type="range" min="0" max="1" step="0.01" value="0.5" />
+      </label>
+      <label class="control">
+        <span>K</span>
+        <input id="kValue" type="number" min="1" max="12" step="1" value="5" />
+      </label>
+      <button id="generatePrompt" type="button">Generate Prompt</button>
+      <button id="copyPrompt" type="button">Copy Prompt</button>
+    </div>
+    <div class="inputs">
+      <textarea id="inputText" rows="3" placeholder=""></textarea>
+      <div class="input-actions">
+        <button id="submitText" type="button">Submit</button>
+        <button id="simulateBurst" type="button">Simulate Burst</button>
+      </div>
+    </div>
+    <div class="output">
+      <div class="output-block">
+        <div class="label">PROMPT</div>
+        <pre id="promptOutput"></pre>
+      </div>
+      <div class="output-block">
+        <div class="label">NEGATIVE</div>
+        <pre id="negativeOutput"></pre>
+      </div>
+      <div class="meta">
+        <div>Timestamp: <span id="promptTimestamp">—</span></div>
+        <div>K: <span id="currentK">—</span></div>
+        <div>Cluster sizes: <span id="clusterSizes">—</span></div>
+        <div>Total tokens: <span id="tokenCount">—</span></div>
+      </div>
+      <div class="clusters" id="clusterDetails"></div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

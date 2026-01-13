@@ -50,6 +50,15 @@ body {
   gap: 6px;
 }
 
+.readout {
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.75);
+}
+
 .controls .full-row {
   grid-column: 1 / -1;
 }

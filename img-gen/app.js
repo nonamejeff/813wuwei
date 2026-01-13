@@ -2,6 +2,10 @@ const BASE_PROMPT =
   "abstract, non-figurative, organic field texture, subdued tones, imperfect continuity, wabi-sabi restraint, atmospheric, film grain";
 const NEGATIVE_PROMPT =
   "text, letters, typography, logo, map, buildings, faces, characters, icons, signage, illustration, cartoon";
+const DEFAULT_OVERRIDE_PROMPT =
+  "abstract, non-figurative, organic field texture, subdued tones, imperfect continuity, wabi-sabi restraint, atmospheric, film grain, (bay:0.84), (salt:0.84), (haze:0.84), (late:0.84), (traffic:0.84), (glow:0.85), (wet:0.84), (pavement:0.84), (slow:0.84), (currents:0.84), (sirens:0.80), (ladder:0.80), (basin:0.80)";
+
+const TARGET_SIZE = 512;
 
 const BOOTSTRAP_TOKENS = [
   "heat",
@@ -240,12 +244,18 @@ const canvas = document.getElementById("field");
 const ctx = canvas.getContext("2d");
 
 const fidelityInput = document.getElementById("fidelity");
+const grainIntensityInput = document.getElementById("grainIntensity");
 const kInput = document.getElementById("kValue");
 const inputText = document.getElementById("inputText");
 const submitText = document.getElementById("submitText");
 const simulateBurst = document.getElementById("simulateBurst");
 const generatePromptBtn = document.getElementById("generatePrompt");
 const copyPromptBtn = document.getElementById("copyPrompt");
+const promptBlock = document.getElementById("promptBlock");
+const manualPrompt = document.getElementById("manualPrompt");
+const targetImageInput = document.getElementById("targetImageInput");
+const targetPreview = document.getElementById("targetPreview");
+const clearTargetImageBtn = document.getElementById("clearTargetImage");
 const promptOutput = document.getElementById("promptOutput");
 const negativeOutput = document.getElementById("negativeOutput");
 const promptTimestamp = document.getElementById("promptTimestamp");
@@ -269,6 +279,14 @@ const noiseCtx = noiseCanvas.getContext("2d");
 noiseCanvas.width = 160;
 noiseCanvas.height = 160;
 
+const targetCanvas = document.createElement("canvas");
+const targetCtx = targetCanvas.getContext("2d");
+targetCanvas.width = TARGET_SIZE;
+targetCanvas.height = TARGET_SIZE;
+
+let targetImageReady = false;
+let targetImageUrl = null;
+
 let clusters = [];
 let lastPrompt = "";
 let lastNegative = NEGATIVE_PROMPT;
@@ -276,6 +294,9 @@ let lastNegative = NEGATIVE_PROMPT;
 function resize() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
+  const grainScale = 0.5;
+  noiseCanvas.width = Math.max(1, Math.floor(canvas.width * grainScale));
+  noiseCanvas.height = Math.max(1, Math.floor(canvas.height * grainScale));
 }
 
 window.addEventListener("resize", resize);
@@ -497,16 +518,61 @@ function renderClusterDebug(k) {
 }
 
 function updateNoise() {
+  const intensity = Number.parseFloat(grainIntensityInput.value);
   const imageData = noiseCtx.createImageData(noiseCanvas.width, noiseCanvas.height);
   const data = imageData.data;
   for (let i = 0; i < data.length; i += 4) {
-    const value = Math.floor(Math.random() * 255);
+    const base = 110 + intensity * 40;
+    const range = 80 + intensity * 120;
+    const value = Math.max(0, Math.min(255, base + (Math.random() - 0.5) * range));
     data[i] = value;
     data[i + 1] = value;
     data[i + 2] = value;
     data[i + 3] = 255;
   }
   noiseCtx.putImageData(imageData, 0, 0);
+}
+
+function drawTargetCoherence(t, fidelity) {
+  if (!targetImageReady) {
+    return;
+  }
+  const alignmentStrength = Math.max(0, Math.min(1, fidelity));
+  const instability = Math.max(0, (fidelity - 0.8) / 0.2);
+  const displacementAmp = 6 + fidelity * 18 + instability * 28;
+  const displacementSpeed = 0.4 + fidelity * 1.6 + instability * 2.8;
+  const stripHeight = Math.max(2, Math.round(8 - fidelity * 5));
+  const targetWidth = targetCanvas.width;
+  const targetHeight = targetCanvas.height;
+  const yScale = targetHeight / canvas.height;
+
+  ctx.save();
+  ctx.globalCompositeOperation = "soft-light";
+  ctx.globalAlpha = 0.18 + alignmentStrength * 0.6;
+  ctx.imageSmoothingEnabled = true;
+
+  for (let y = 0; y < canvas.height; y += stripHeight) {
+    const ySource = y * yScale;
+    const sourceHeight = stripHeight * yScale;
+    const phase = y * 0.03 + t * displacementSpeed;
+    const wobble = Math.sin(phase) + Math.sin(phase * 0.6 + t * 0.4);
+    const jitter = (Math.random() - 0.5) * instability * displacementAmp * 0.6;
+    const dx = wobble * displacementAmp + jitter;
+    const dy = Math.cos(phase * 0.8) * displacementAmp * 0.2 + jitter * 0.2;
+    ctx.drawImage(
+      targetCanvas,
+      0,
+      ySource,
+      targetWidth,
+      sourceHeight,
+      dx,
+      y + dy,
+      canvas.width,
+      stripHeight + 1
+    );
+  }
+
+  ctx.restore();
 }
 
 function renderFrame(time) {
@@ -534,16 +600,20 @@ function renderFrame(time) {
   );
   ctx.restore();
 
+  drawTargetCoherence(t, fidelity);
+
   updateNoise();
   ctx.save();
-  ctx.globalAlpha = 0.3 + (1 - fidelity) * 0.7;
+  ctx.globalAlpha = 0.25 + Number.parseFloat(grainIntensityInput.value) * 0.55;
+  ctx.globalCompositeOperation = "screen";
+  ctx.imageSmoothingEnabled = false;
   ctx.drawImage(noiseCanvas, 0, 0, canvas.width, canvas.height);
   ctx.restore();
 
   ctx.save();
-  ctx.globalAlpha = 0.15 + (1 - fidelity) * 0.2;
+  ctx.globalAlpha = 0.04 + (1 - fidelity) * 0.06;
   ctx.fillStyle = "rgba(0,0,0,0.5)";
-  for (let y = 0; y < canvas.height; y += 4) {
+  for (let y = 0; y < canvas.height; y += 3) {
     ctx.fillRect(0, y, canvas.width, 1);
   }
   ctx.restore();
@@ -573,16 +643,57 @@ function generatePrompt() {
   lastPrompt = [BASE_PROMPT, ...weightedTerms].join(", ");
   lastNegative = NEGATIVE_PROMPT;
 
+  promptBlock.value = `PROMPT:\n${lastPrompt}\n\nNEGATIVE:\n${lastNegative}`;
   promptOutput.textContent = lastPrompt;
   negativeOutput.textContent = lastNegative;
   promptTimestamp.textContent = new Date().toLocaleTimeString();
 }
 
 function copyPrompt() {
-  const combined = `PROMPT:\n${lastPrompt}\n\nNEGATIVE:\n${lastNegative}`;
+  const manualValue = manualPrompt.value.trim();
+  const promptText = manualValue.length ? manualValue : lastPrompt;
+  const combined = `PROMPT:\n${promptText}\n\nNEGATIVE:\n${lastNegative}`;
   navigator.clipboard.writeText(combined).catch(() => {
     // Clipboard may be blocked; ignore.
   });
+}
+
+function drawTargetToCanvas(image) {
+  const scale = Math.max(TARGET_SIZE / image.width, TARGET_SIZE / image.height);
+  const drawWidth = image.width * scale;
+  const drawHeight = image.height * scale;
+  const dx = (TARGET_SIZE - drawWidth) / 2;
+  const dy = (TARGET_SIZE - drawHeight) / 2;
+  targetCtx.clearRect(0, 0, TARGET_SIZE, TARGET_SIZE);
+  targetCtx.drawImage(image, dx, dy, drawWidth, drawHeight);
+  targetImageReady = true;
+}
+
+function handleTargetImage(file) {
+  if (!file) {
+    return;
+  }
+  if (targetImageUrl) {
+    URL.revokeObjectURL(targetImageUrl);
+  }
+  targetImageUrl = URL.createObjectURL(file);
+  const image = new Image();
+  image.onload = () => {
+    drawTargetToCanvas(image);
+    targetPreview.src = targetImageUrl;
+  };
+  image.src = targetImageUrl;
+}
+
+function clearTargetImage() {
+  targetCtx.clearRect(0, 0, TARGET_SIZE, TARGET_SIZE);
+  targetImageReady = false;
+  targetPreview.src = "";
+  if (targetImageUrl) {
+    URL.revokeObjectURL(targetImageUrl);
+    targetImageUrl = null;
+  }
+  targetImageInput.value = "";
 }
 
 function simulateBurstMessages() {
@@ -615,10 +726,16 @@ generatePromptBtn.addEventListener("click", generatePrompt);
 copyPromptBtn.addEventListener("click", copyPrompt);
 
 kInput.addEventListener("change", buildClusters);
+targetImageInput.addEventListener("change", (event) => {
+  handleTargetImage(event.target.files[0]);
+});
+clearTargetImageBtn.addEventListener("click", clearTargetImage);
 
 BOOTSTRAP_TOKENS.forEach((token) => addMessage(token));
 buildClusters();
 negativeOutput.textContent = NEGATIVE_PROMPT;
 promptOutput.textContent = "";
+manualPrompt.value = DEFAULT_OVERRIDE_PROMPT;
+generatePrompt();
 
 requestAnimationFrame(renderFrame);

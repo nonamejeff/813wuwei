@@ -246,6 +246,10 @@ const ctx = canvas.getContext("2d");
 const fidelityInput = document.getElementById("fidelity");
 const kInput = document.getElementById("kValue");
 const motionReadout = document.getElementById("motionReadout");
+const regimeReadout = document.getElementById("regimeReadout");
+const entropyReadout = document.getElementById("entropyReadout");
+const coherenceReadout = document.getElementById("coherenceReadout");
+const flowReadout = document.getElementById("flowReadout");
 const inputText = document.getElementById("inputText");
 const submitText = document.getElementById("submitText");
 const simulateBurst = document.getElementById("simulateBurst");
@@ -294,6 +298,7 @@ let stateFieldA = null;
 let stateFieldB = null;
 let outputImageData = outputCtx.createImageData(TARGET_SIZE, TARGET_SIZE);
 let maxGradient = 1;
+let frameCounter = 0;
 
 let clusters = [];
 let lastPrompt = "";
@@ -487,6 +492,23 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
+function smoothstep(edge0, edge1, x) {
+  const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
+function hashNoise(x, y, frame, seed) {
+  let n = x + y * 374761393 + frame * 668265263 + seed;
+  n = Math.imul(n ^ (n >>> 13), 1274126177);
+  n = (n ^ (n >>> 16)) >>> 0;
+  return n / 4294967295;
+}
+
+function contrastNoise(value, contrast) {
+  const centered = (value - 0.5) * contrast + 0.5;
+  return clamp(centered, 0, 1);
+}
+
 function initFields() {
   const total = TARGET_SIZE * TARGET_SIZE;
   noiseFieldA = new Float32Array(total);
@@ -613,21 +635,22 @@ function sampleField(field, x, y) {
   return lerp(vx0, vx1, fy);
 }
 
-function updateNoiseField(fidelity, motionScale) {
-  if (!gradientField) {
+function updateNoiseField(coherenceStrength, entropyStrength, motionDamp, flowEnabled) {
+  if (!gradientField || !flowEnabled) {
     return;
   }
   const { tx, ty, mag } = gradientField;
   const size = TARGET_SIZE;
   const total = size * size;
-  const advectStrength = 1.6 * motionScale;
-  const injectStrength = 0.08 * (1 - fidelity);
+  const flowAmp = coherenceStrength * 1.6 * (1 - motionDamp);
+  const dt = coherenceStrength * 0.9 * (1 - motionDamp);
+  const injectStrength = 0.02 + entropyStrength * 0.16;
 
   for (let i = 0; i < total; i += 1) {
     const x = i % size;
     const y = Math.floor(i / size);
     const magNorm = mag[i] / maxGradient;
-    const flowScale = advectStrength * (0.4 + magNorm);
+    const flowScale = flowAmp * dt * (0.4 + magNorm);
     const dx = tx[i] * flowScale;
     const dy = ty[i] * flowScale;
     const sample = sampleField(noiseFieldA, x - dx, y - dy);
@@ -638,16 +661,16 @@ function updateNoiseField(fidelity, motionScale) {
   [noiseFieldA, noiseFieldB] = [noiseFieldB, noiseFieldA];
 }
 
-function updateStateField(fidelity) {
-  if (!targetLevels.length) {
+function updateStateField(fidelity, coherenceStrength, flowEnabled) {
+  if (!targetLevels.length || !flowEnabled) {
     return;
   }
   const maxIndex = targetLevels.length - 1;
   const coarseIndex = clamp(Math.round((1 - fidelity) * maxIndex), 0, maxIndex);
   const coarseY = targetLevels[coarseIndex].luminance;
   const detailY = targetLevels[0].luminance;
-  const baseStep = 0.01 + fidelity * 0.06;
-  const detailStep = fidelity * fidelity * 0.05;
+  const baseStep = (0.01 + fidelity * 0.06) * coherenceStrength;
+  const detailStep = fidelity * fidelity * 0.05 * coherenceStrength;
 
   const total = TARGET_SIZE * TARGET_SIZE;
   for (let i = 0; i < total; i += 1) {
@@ -659,7 +682,8 @@ function updateStateField(fidelity) {
     stateFieldB[i] = clamp(state, 0, 1);
   }
 
-  const diffusion = (1 - Math.min(1, Math.abs(fidelity - 0.5) * 2)) * 0.12;
+  const diffusion =
+    (1 - Math.min(1, Math.abs(fidelity - 0.5) * 2)) * 0.12 * coherenceStrength;
   if (diffusion > 0.01 && gradientField) {
     const { tx, ty } = gradientField;
     const size = TARGET_SIZE;
@@ -693,17 +717,45 @@ function licNoise(x, y, tx, ty) {
 }
 
 function renderFrame() {
-  const fidelity = Number.parseFloat(fidelityInput.value);
-  const motionScale = (1 - fidelity) ** 2;
+  const fidelity = clamp(Number.parseFloat(fidelityInput.value), 0, 1);
+  const coherenceStrength = smoothstep(0.5, 1.0, fidelity);
+  const entropyStrength = 1 - smoothstep(0.0, 0.5, fidelity);
+  const motionDamp = fidelity ** 3;
+  const flowEnabled = fidelity >= 0.5 && targetImageReady && !!gradientField;
+  const regime =
+    fidelity < 0.5 ? "ENTROPY" : fidelity < 0.85 ? "COHERENCE" : "HIGH";
+  const motionScale = (1 - motionDamp) * coherenceStrength;
+
   motionReadout.textContent = motionScale.toFixed(3);
+  regimeReadout.textContent = regime;
+  entropyReadout.textContent = entropyStrength.toFixed(3);
+  coherenceReadout.textContent = coherenceStrength.toFixed(3);
+  flowReadout.textContent = flowEnabled ? "true" : "false";
 
   if (!noiseFieldA || !stateFieldA) {
     initFields();
   }
 
-  if (targetImageReady && targetLevels.length) {
-    updateNoiseField(fidelity, motionScale);
-    updateStateField(fidelity);
+  if (fidelity < 0.5) {
+    const total = TARGET_SIZE * TARGET_SIZE;
+    const seed = Math.floor(performance.now());
+    const contrast = 2.4 + entropyStrength * 0.6;
+    const brighten = 0.08 + entropyStrength * 0.12;
+    for (let i = 0; i < total; i += 1) {
+      const x = i % TARGET_SIZE;
+      const y = Math.floor(i / TARGET_SIZE);
+      const noise = hashNoise(x, y, frameCounter, seed);
+      const value = clamp(contrastNoise(noise, contrast) + brighten, 0, 1);
+      const gray = Math.floor(value * 255);
+      const dataIndex = i * 4;
+      outputImageData.data[dataIndex] = gray;
+      outputImageData.data[dataIndex + 1] = gray;
+      outputImageData.data[dataIndex + 2] = gray;
+      outputImageData.data[dataIndex + 3] = 255;
+    }
+  } else if (targetImageReady && targetLevels.length) {
+    updateNoiseField(coherenceStrength, entropyStrength, motionDamp, flowEnabled);
+    updateStateField(fidelity, coherenceStrength, flowEnabled);
 
     const maxIndex = targetLevels.length - 1;
     const colorIndex = clamp(Math.round((1 - fidelity) * maxIndex), 0, maxIndex);
@@ -713,6 +765,9 @@ function renderFrame() {
     const total = TARGET_SIZE * TARGET_SIZE;
     const grainMix = 0.08 + (1 - fidelity) * 0.35;
     const { tx, ty } = gradientField || { tx: null, ty: null };
+    const transition = smoothstep(0.45, 0.55, fidelity);
+    const seed = Math.floor(performance.now());
+    const noiseContrast = 1.8;
 
     for (let i = 0; i < total; i += 1) {
       const x = i % TARGET_SIZE;
@@ -724,19 +779,44 @@ function renderFrame() {
       const yOut = clamp(stateFieldA[i] + grainDetail * grainMix, 0, 1);
 
       const dataIndex = i * 4;
+      const noise = hashNoise(x, y, frameCounter, seed);
+      const noiseValue = contrastNoise(noise, noiseContrast);
       const r = baseData[dataIndex];
       const g = baseData[dataIndex + 1];
       const b = baseData[dataIndex + 2];
       const ratio = yOut / (baseY[i] + 0.001);
-      outputImageData.data[dataIndex] = clamp(r * ratio, 0, 255);
-      outputImageData.data[dataIndex + 1] = clamp(g * ratio, 0, 255);
-      outputImageData.data[dataIndex + 2] = clamp(b * ratio, 0, 255);
+      const outR = clamp(r * ratio, 0, 255);
+      const outG = clamp(g * ratio, 0, 255);
+      const outB = clamp(b * ratio, 0, 255);
+      outputImageData.data[dataIndex] = lerp(noiseValue * 255, outR, transition);
+      outputImageData.data[dataIndex + 1] = lerp(
+        noiseValue * 255,
+        outG,
+        transition
+      );
+      outputImageData.data[dataIndex + 2] = lerp(
+        noiseValue * 255,
+        outB,
+        transition
+      );
       outputImageData.data[dataIndex + 3] = 255;
     }
   } else {
     const total = TARGET_SIZE * TARGET_SIZE;
+    const seed = Math.floor(performance.now());
+    const transition = smoothstep(0.45, 0.55, fidelity);
+    const noiseContrast = 1.8;
     for (let i = 0; i < total; i += 1) {
-      const value = clamp(stateFieldA[i] + (noiseFieldA[i] - 0.5) * 0.4, 0, 1);
+      const x = i % TARGET_SIZE;
+      const y = Math.floor(i / TARGET_SIZE);
+      const noise = hashNoise(x, y, frameCounter, seed);
+      const noiseValue = contrastNoise(noise, noiseContrast);
+      const structured = clamp(
+        stateFieldA[i] + (noiseFieldA[i] - 0.5) * 0.4,
+        0,
+        1
+      );
+      const value = lerp(noiseValue, structured, transition);
       const dataIndex = i * 4;
       const gray = Math.floor(value * 255);
       outputImageData.data[dataIndex] = gray;
@@ -751,6 +831,7 @@ function renderFrame() {
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(outputCanvas, 0, 0, canvas.width, canvas.height);
 
+  frameCounter += 1;
   requestAnimationFrame(renderFrame);
 }
 

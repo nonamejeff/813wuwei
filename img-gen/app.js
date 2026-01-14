@@ -5,7 +5,7 @@ const NEGATIVE_PROMPT =
 const DEFAULT_OVERRIDE_PROMPT =
   "abstract, non-figurative, organic field texture, subdued tones, imperfect continuity, wabi-sabi restraint, atmospheric, film grain, (bay:0.84), (salt:0.84), (haze:0.84), (late:0.84), (traffic:0.84), (glow:0.85), (wet:0.84), (pavement:0.84), (slow:0.84), (currents:0.84), (sirens:0.80), (ladder:0.80), (basin:0.80)";
 
-const TARGET_SIZE = 512;
+const DEFAULT_TARGET_SIZE = 512;
 
 const BOOTSTRAP_TOKENS = [
   "heat",
@@ -275,8 +275,8 @@ const decayRate = 0.00035;
 
 const targetCanvas = document.createElement("canvas");
 const targetCtx = targetCanvas.getContext("2d");
-targetCanvas.width = TARGET_SIZE;
-targetCanvas.height = TARGET_SIZE;
+targetCanvas.width = DEFAULT_TARGET_SIZE;
+targetCanvas.height = DEFAULT_TARGET_SIZE;
 
 let targetImageReady = false;
 let targetImageUrl = null;
@@ -475,13 +475,18 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function lerp(a, b, t) {
-  return a + (b - a) * t;
+function motionCurve(value) {
+  return Math.log2(1 + 7 * value) / Math.log2(8);
 }
 
-function smoothstep(edge0, edge1, x) {
-  const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
-  return t * t * (3 - 2 * t);
+function setTargetCanvasSize(width, height) {
+  const nextWidth = Math.max(1, Math.floor(width));
+  const nextHeight = Math.max(1, Math.floor(height));
+  if (targetCanvas.width === nextWidth && targetCanvas.height === nextHeight) {
+    return;
+  }
+  targetCanvas.width = nextWidth;
+  targetCanvas.height = nextHeight;
 }
 
 const VERTEX_SHADER = `
@@ -502,6 +507,7 @@ const FRAGMENT_SHADER = `
   uniform float u_fidelity;
   uniform float u_time;
   uniform float u_seed;
+  uniform vec2 u_tex_res;
 
   float hash12(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -527,6 +533,7 @@ const FRAGMENT_SHADER = `
     vec2 p = gl_FragCoord.xy;
     float f = clamp(u_fidelity, 0.0, 1.0);
     float n = 1.0 - f;
+    float motion = log2(1.0 + 7.0 * n) / log2(8.0);
 
     if (f < 0.02) {
       float r = hash12(p + u_seed * 17.0 + floor(u_time * 60.0));
@@ -536,9 +543,9 @@ const FRAGMENT_SHADER = `
       return;
     }
 
-    float maxRadius = min(u_res.x, u_res.y) * 0.45;
-    float radiusPx = mix(0.0, maxRadius, pow(n, 1.8));
-    float zoneSize = mix(1.0, 32.0, pow(n, 1.2));
+    float maxRadius = min(u_res.x, u_res.y) * 0.35;
+    float radiusPx = mix(0.0, maxRadius, pow(motion, 1.4));
+    float zoneSize = mix(1.0, 12.0, pow(motion, 1.3));
 
     vec2 zone = floor(p / zoneSize);
     vec2 zoneDir = randUnitVec(zone + u_seed * 3.7);
@@ -547,20 +554,30 @@ const FRAGMENT_SHADER = `
     vec2 microDir = randUnitVec(p + u_seed * 13.3);
     float microMag = radiusPx * 0.25 * hash12(p + zone * 7.7 + u_seed * 5.5);
 
-    float timeAmp = pow(n, 2.2);
-    float t = floor(u_time * (20.0 + 80.0 * timeAmp));
-    vec2 timeDir = randUnitVec(zone + t + u_seed * 2.0);
-    float timeMag = radiusPx * 0.15 * timeAmp;
+    float timeAmp = pow(motion, 1.15);
+    float t = u_time * (4.0 + 12.0 * timeAmp);
+    vec2 timeDir = randUnitVec(zone + u_seed * 2.0 + vec2(t, t * 1.3));
+    float timeMag = radiusPx * 0.1 * timeAmp;
 
     vec2 offsetPx = zoneDir * zoneMag + microDir * microMag + timeDir * timeMag;
     vec2 sampleP = p + offsetPx;
-    vec2 uv = fract(sampleP / u_res);
+    vec2 uv = sampleP / u_res;
+    float screenAspect = u_res.x / u_res.y;
+    float texAspect = u_tex_res.x / u_tex_res.y;
+    vec2 coverScale = vec2(1.0);
+    if (screenAspect > texAspect) {
+      coverScale.y = screenAspect / texAspect;
+    } else {
+      coverScale.x = texAspect / screenAspect;
+    }
+    uv = (uv - 0.5) * coverScale + 0.5;
+    uv = clamp(uv, 0.0, 1.0);
 
     vec3 col = texture2D(u_image, uv).rgb;
-    float sat = mix(1.0, 0.0, pow(n, 1.6));
+    float sat = mix(1.0, 0.2, pow(motion, 1.1));
     col = adjustSaturation(col, sat);
 
-    float j = (hash12(p + u_seed * 101.0 + t) - 0.5) * 0.35 * pow(n, 1.3);
+    float j = (hash12(p + u_seed * 101.0 + t) - 0.5) * 0.2 * pow(motion, 1.1);
     col = clamp(col + j, 0.0, 1.0);
 
     gl_FragColor = vec4(col, 1.0);
@@ -607,7 +624,8 @@ function initWebGL() {
     resolution: gl.getUniformLocation(glProgram, "u_res"),
     fidelity: gl.getUniformLocation(glProgram, "u_fidelity"),
     time: gl.getUniformLocation(glProgram, "u_time"),
-    seed: gl.getUniformLocation(glProgram, "u_seed")
+    seed: gl.getUniformLocation(glProgram, "u_seed"),
+    textureResolution: gl.getUniformLocation(glProgram, "u_tex_res")
   };
 
   glBuffers = {
@@ -623,21 +641,10 @@ function initWebGL() {
   targetTexture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, targetTexture);
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texImage2D(
-    gl.TEXTURE_2D,
-    0,
-    gl.RGBA,
-    TARGET_SIZE,
-    TARGET_SIZE,
-    0,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
-    null
-  );
   updateTargetTexture();
 }
 
@@ -664,7 +671,7 @@ function renderFrame(time) {
 
   const fidelity = clamp(Number.parseFloat(fidelityInput.value), 0, 1);
   const noiseAmount = 1 - fidelity;
-  const timeAmp = noiseAmount ** 2.2;
+  const timeAmp = motionCurve(noiseAmount);
   const regime =
     fidelity < 0.3 ? "ENTROPY" : fidelity < 0.85 ? "SCRAMBLE" : "HIGH";
 
@@ -688,6 +695,7 @@ function renderFrame(time) {
   gl.uniform1f(glUniforms.fidelity, fidelity);
   gl.uniform1f(glUniforms.time, (time || 0) * 0.001);
   gl.uniform1f(glUniforms.seed, noiseSeed);
+  gl.uniform2f(glUniforms.textureResolution, targetCanvas.width, targetCanvas.height);
 
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
@@ -733,13 +741,9 @@ function copyPrompt() {
 }
 
 function drawTargetToCanvas(image) {
-  const scale = Math.max(TARGET_SIZE / image.width, TARGET_SIZE / image.height);
-  const drawWidth = image.width * scale;
-  const drawHeight = image.height * scale;
-  const dx = (TARGET_SIZE - drawWidth) / 2;
-  const dy = (TARGET_SIZE - drawHeight) / 2;
-  targetCtx.clearRect(0, 0, TARGET_SIZE, TARGET_SIZE);
-  targetCtx.drawImage(image, dx, dy, drawWidth, drawHeight);
+  setTargetCanvasSize(image.width, image.height);
+  targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+  targetCtx.drawImage(image, 0, 0);
   targetImageReady = true;
   updateTargetTexture();
 }
@@ -761,7 +765,8 @@ function handleTargetImage(file) {
 }
 
 function clearTargetImage() {
-  targetCtx.clearRect(0, 0, TARGET_SIZE, TARGET_SIZE);
+  setTargetCanvasSize(DEFAULT_TARGET_SIZE, DEFAULT_TARGET_SIZE);
+  targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
   targetImageReady = false;
   updateTargetTexture();
   targetPreview.src = "";

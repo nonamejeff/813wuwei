@@ -23,8 +23,9 @@
       <textarea id="promptOut" rows="4" readonly></textarea>
     </label>
     <label class="control">
-      <span>Fidelity</span>
-      <input id="fidelity" type="range" min="0" max="1" step="0.01" value="0.5" />
+      <span>Coherence Sensitivity</span>
+      <input id="sensitivity" type="range" min="0" max="1" step="0.01" value="0.5" />
+      <span class="control-hint">How responsive coherence is to activity.</span>
     </label>
     <button id="generateImageBtn" type="button">Generate</button>
     <div id="imageStatus" class="readout">—</div>
@@ -51,6 +52,22 @@
       <div class="control">
         <span>Flow Enabled</span>
         <div id="flowReadout" class="readout">—</div>
+      </div>
+      <div class="control">
+        <span>Rate (EPM)</span>
+        <div id="rateReadout" class="readout">—</div>
+      </div>
+      <div class="control">
+        <span>EMA Rate</span>
+        <div id="emaRateReadout" class="readout">—</div>
+      </div>
+      <div class="control">
+        <span>Target Fidelity</span>
+        <div id="targetFidelityReadout" class="readout">—</div>
+      </div>
+      <div class="control">
+        <span>Current Fidelity</span>
+        <div id="currentFidelityReadout" class="readout">—</div>
       </div>
       <label class="control">
         <span>K</span>

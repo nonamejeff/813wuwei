@@ -308,7 +308,7 @@ const screenSize = {
   height: window.innerHeight
 };
 
-const fidelityInput = document.getElementById("fidelity");
+const sensitivityInput = document.getElementById("sensitivity");
 const userWordsInput = document.getElementById("userWords");
 const sendWordsBtn = document.getElementById("sendWordsBtn");
 const promptOut = document.getElementById("promptOut");
@@ -318,6 +318,11 @@ const regimeReadout = document.getElementById("regimeReadout");
 const entropyReadout = document.getElementById("entropyReadout");
 const coherenceReadout = document.getElementById("coherenceReadout");
 const flowReadout = document.getElementById("flowReadout");
+const rateReadout = document.getElementById("rateReadout");
+const emaRateReadout = document.getElementById("emaRateReadout");
+const targetFidelityReadout = document.getElementById("targetFidelityReadout");
+const currentFidelityReadout = document.getElementById("currentFidelityReadout");
+const devTools = document.getElementById("devTools");
 const inputText = document.getElementById("inputText");
 const submitText = document.getElementById("submitText");
 const simulateBurst = document.getElementById("simulateBurst");
@@ -362,6 +367,32 @@ let targetTexture = null;
 let clusters = [];
 let lastPrompt = "";
 let lastNegative = NEGATIVE_PROMPT;
+let sendTimes = [];
+let emaRate = 0;
+let fidelity = 0.05;
+let targetFidelity = 0.05;
+let sensitivity01 = 0.5;
+
+const RATE_WINDOW_MS = 60000;
+const RATE_MAX = 30;
+const FIDELITY_MIN = 0.02;
+const FIDELITY_MAX = 0.98;
+const RATE_ALPHA = 0.05;
+const FIDELITY_ALPHA = 0.03;
+const SEND_RATE_TICK_MS = 100;
+
+const devEnabled = new URLSearchParams(window.location.search).get("dev") === "1";
+
+if (devTools) {
+  devTools.style.display = devEnabled ? "flex" : "none";
+}
+
+if (sensitivityInput) {
+  sensitivity01 = clamp(Number.parseFloat(sensitivityInput.value), 0, 1);
+  sensitivityInput.addEventListener("input", (event) => {
+    sensitivity01 = clamp(Number.parseFloat(event.target.value), 0, 1);
+  });
+}
 
 function resize() {
   screenSize.width = window.innerWidth;
@@ -556,8 +587,47 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function lerp(start, end, amount) {
+  return start + (end - start) * amount;
+}
+
 function motionCurve(value) {
   return Math.log2(1 + 7 * value) / Math.log2(8);
+}
+
+function recordSendEvent() {
+  sendTimes.push(Date.now());
+}
+
+function updateRateAndFidelity() {
+  const now = Date.now();
+  while (sendTimes.length && now - sendTimes[0] > RATE_WINDOW_MS) {
+    sendTimes.shift();
+  }
+
+  const instantRate = sendTimes.length * (60000 / RATE_WINDOW_MS);
+  emaRate = lerp(emaRate, instantRate, RATE_ALPHA);
+
+  const normalizedRate = clamp(emaRate / RATE_MAX, 0, 1);
+  const sensitivity = 0.25 + sensitivity01 * 2.75;
+  const curved = Math.pow(normalizedRate, 1 / sensitivity);
+  targetFidelity = FIDELITY_MIN + (FIDELITY_MAX - FIDELITY_MIN) * curved;
+  fidelity = lerp(fidelity, targetFidelity, FIDELITY_ALPHA);
+
+  if (devEnabled) {
+    if (rateReadout) {
+      rateReadout.textContent = instantRate.toFixed(2);
+    }
+    if (emaRateReadout) {
+      emaRateReadout.textContent = emaRate.toFixed(2);
+    }
+    if (targetFidelityReadout) {
+      targetFidelityReadout.textContent = targetFidelity.toFixed(3);
+    }
+    if (currentFidelityReadout) {
+      currentFidelityReadout.textContent = fidelity.toFixed(3);
+    }
+  }
 }
 
 function addBucket(bucket, phrase, weight) {
@@ -899,7 +969,6 @@ function renderFrame(time) {
   }
   initWebGL();
 
-  const fidelity = clamp(Number.parseFloat(fidelityInput.value), 0, 1);
   const noiseAmount = 1 - fidelity;
   const timeAmp = motionCurve(noiseAmount);
   const regime =
@@ -972,7 +1041,6 @@ function setImageStatus(message) {
 
 async function sendWords() {
   const words = userWordsInput ? userWordsInput.value.trim() : "";
-  const fidelity = fidelityInput ? Number.parseFloat(fidelityInput.value) : undefined;
 
   if (!words) {
     setImageStatus("Enter a few words to build a prompt.");
@@ -1008,6 +1076,7 @@ async function sendWords() {
       throw new Error(message);
     }
 
+    recordSendEvent();
     const nextPrompt = data?.prompt || "";
     if (nextPrompt) {
       lastPrompt = nextPrompt;
@@ -1134,7 +1203,12 @@ function bumpSeed() {
 }
 
 submitText.addEventListener("click", () => {
-  addMessage(inputText.value);
+  const text = inputText.value.trim();
+  if (!text) {
+    return;
+  }
+  addMessage(text);
+  recordSendEvent();
   inputText.value = "";
   buildClusters();
   bumpSeed();
@@ -1170,5 +1244,8 @@ negativeOutput.textContent = NEGATIVE_PROMPT;
 promptOutput.textContent = "";
 manualPrompt.value = DEFAULT_OVERRIDE_PROMPT;
 generatePrompt();
+
+updateRateAndFidelity();
+setInterval(updateRateAndFidelity, SEND_RATE_TICK_MS);
 
 requestAnimationFrame(renderFrame);

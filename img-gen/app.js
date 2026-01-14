@@ -545,22 +545,12 @@ const FRAGMENT_SHADER = `
 
     float maxRadius = min(u_res.x, u_res.y) * 0.35;
     float radiusPx = mix(0.0, maxRadius, pow(motion, 1.4));
-    float zoneSize = mix(1.0, 12.0, pow(motion, 1.3));
-
-    vec2 zone = floor(p / zoneSize);
-    vec2 zoneDir = randUnitVec(zone + u_seed * 3.7);
-    float zoneMag = radiusPx * (0.6 + 0.4 * hash12(zone + u_seed * 9.1));
-
-    vec2 microDir = randUnitVec(p + u_seed * 13.3);
-    float microMag = radiusPx * 0.25 * hash12(p + zone * 7.7 + u_seed * 5.5);
-
     float timeAmp = pow(motion, 1.15);
     float t = u_time * (4.0 + 12.0 * timeAmp);
-    vec2 timeDir = randUnitVec(zone + u_seed * 2.0 + vec2(t, t * 1.3));
+    vec2 timeDir = randUnitVec(p + u_seed * 2.0 + vec2(t, t * 1.3));
     float timeMag = radiusPx * 0.1 * timeAmp;
 
-    vec2 offsetPx = zoneDir * zoneMag + microDir * microMag + timeDir * timeMag;
-    vec2 sampleP = p + offsetPx;
+    vec2 sampleP = p + timeDir * timeMag;
     vec2 uv = sampleP / u_res;
     float screenAspect = u_res.x / u_res.y;
     float texAspect = u_tex_res.x / u_tex_res.y;
@@ -573,11 +563,25 @@ const FRAGMENT_SHADER = `
     uv = (uv - 0.5) * coverScale + 0.5;
     uv = clamp(uv, 0.0, 1.0);
 
-    vec3 col = texture2D(u_image, uv).rgb;
+    vec2 texel = uv * u_tex_res;
+    float zoneSize = mix(1.0, 12.0, pow(motion, 1.3));
+    vec2 zone = floor(texel / zoneSize);
+    vec2 zoneDir = randUnitVec(zone + u_seed * 3.7);
+    float zoneMag = radiusPx * (0.6 + 0.4 * hash12(zone + u_seed * 9.1));
+
+    vec2 microDir = randUnitVec(texel + u_seed * 13.3);
+    float microMag = radiusPx * 0.25 * hash12(texel + zone * 7.7 + u_seed * 5.5);
+
+    vec2 offsetPx = zoneDir * zoneMag + microDir * microMag;
+    vec2 sampleUv = (sampleP + offsetPx) / u_res;
+    sampleUv = (sampleUv - 0.5) * coverScale + 0.5;
+    sampleUv = clamp(sampleUv, 0.0, 1.0);
+
+    vec3 col = texture2D(u_image, sampleUv).rgb;
     float sat = mix(1.0, 0.2, pow(motion, 1.1));
     col = adjustSaturation(col, sat);
 
-    float j = (hash12(p + u_seed * 101.0 + t) - 0.5) * 0.2 * pow(motion, 1.1);
+    float j = (hash12(texel + u_seed * 101.0 + t) - 0.5) * 0.2 * pow(motion, 1.1);
     col = clamp(col + j, 0.0, 1.0);
 
     gl_FragColor = vec4(col, 1.0);

@@ -241,7 +241,7 @@ const STOPWORDS = new Set([
 ]);
 
 const canvas = document.getElementById("field");
-const ctx = canvas.getContext("2d");
+const gl = canvas.getContext("webgl");
 
 const fidelityInput = document.getElementById("fidelity");
 const kInput = document.getElementById("kValue");
@@ -273,16 +273,6 @@ const messages = [];
 const maxMessages = 120;
 const decayRate = 0.00035;
 
-const outputCanvas = document.createElement("canvas");
-const outputCtx = outputCanvas.getContext("2d", { willReadFrequently: true });
-outputCanvas.width = TARGET_SIZE;
-outputCanvas.height = TARGET_SIZE;
-
-const workCanvas = document.createElement("canvas");
-const workCtx = workCanvas.getContext("2d", { willReadFrequently: true });
-workCanvas.width = TARGET_SIZE;
-workCanvas.height = TARGET_SIZE;
-
 const targetCanvas = document.createElement("canvas");
 const targetCtx = targetCanvas.getContext("2d");
 targetCanvas.width = TARGET_SIZE;
@@ -290,15 +280,12 @@ targetCanvas.height = TARGET_SIZE;
 
 let targetImageReady = false;
 let targetImageUrl = null;
-let targetLevels = [];
-let gradientField = null;
-let noiseFieldA = null;
-let noiseFieldB = null;
-let stateFieldA = null;
-let stateFieldB = null;
-let outputImageData = outputCtx.createImageData(TARGET_SIZE, TARGET_SIZE);
-let maxGradient = 1;
 let frameCounter = 0;
+let noiseSeed = 1;
+let glProgram = null;
+let glUniforms = null;
+let glBuffers = null;
+let targetTexture = null;
 
 let clusters = [];
 let lastPrompt = "";
@@ -497,339 +484,212 @@ function smoothstep(edge0, edge1, x) {
   return t * t * (3 - 2 * t);
 }
 
-function hashNoise(x, y, frame, seed) {
-  let n = x + y * 374761393 + frame * 668265263 + seed;
-  n = Math.imul(n ^ (n >>> 13), 1274126177);
-  n = (n ^ (n >>> 16)) >>> 0;
-  return n / 4294967295;
-}
+const VERTEX_SHADER = `
+  attribute vec2 a_position;
+  varying vec2 v_uv;
 
-function contrastNoise(value, contrast) {
-  const centered = (value - 0.5) * contrast + 0.5;
-  return clamp(centered, 0, 1);
-}
-
-function initFields() {
-  const total = TARGET_SIZE * TARGET_SIZE;
-  noiseFieldA = new Float32Array(total);
-  noiseFieldB = new Float32Array(total);
-  stateFieldA = new Float32Array(total);
-  stateFieldB = new Float32Array(total);
-  for (let i = 0; i < total; i += 1) {
-    const seed = Math.random();
-    noiseFieldA[i] = seed;
-    noiseFieldB[i] = seed;
-    stateFieldA[i] = seed;
-    stateFieldB[i] = seed;
+  void main() {
+    v_uv = a_position * 0.5 + 0.5;
+    gl_Position = vec4(a_position, 0.0, 1.0);
   }
-}
+`;
 
-function buildPyramid() {
-  const blurLevels = [0, 3, 8, 18];
-  targetLevels = blurLevels.map((radius) => {
-    workCtx.clearRect(0, 0, TARGET_SIZE, TARGET_SIZE);
-    workCtx.filter = radius ? `blur(${radius}px)` : "none";
-    workCtx.drawImage(targetCanvas, 0, 0, TARGET_SIZE, TARGET_SIZE);
-    workCtx.filter = "none";
-    const imageData = workCtx.getImageData(0, 0, TARGET_SIZE, TARGET_SIZE);
-    const luminance = new Float32Array(TARGET_SIZE * TARGET_SIZE);
-    const data = imageData.data;
-    for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
-      const r = data[i] / 255;
-      const g = data[i + 1] / 255;
-      const b = data[i + 2] / 255;
-      luminance[p] = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+const FRAGMENT_SHADER = `
+  precision highp float;
+
+  uniform sampler2D u_image;
+  uniform vec2 u_res;
+  uniform float u_fidelity;
+  uniform float u_time;
+  uniform float u_seed;
+
+  float hash12(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+  }
+
+  vec2 randUnitVec(vec2 p) {
+    float a = hash12(p) * 6.28318530718;
+    return vec2(cos(a), sin(a));
+  }
+
+  float luminance(vec3 c) {
+    return dot(c, vec3(0.2126, 0.7152, 0.0722));
+  }
+
+  vec3 adjustSaturation(vec3 c, float sat) {
+    float l = luminance(c);
+    return mix(vec3(l), c, sat);
+  }
+
+  void main() {
+    vec2 p = gl_FragCoord.xy;
+    float f = clamp(u_fidelity, 0.0, 1.0);
+    float n = 1.0 - f;
+
+    if (f < 0.02) {
+      float r = hash12(p + u_seed * 17.0 + floor(u_time * 60.0));
+      float g = hash12(p + u_seed * 31.0 + floor(u_time * 60.0) + 11.0);
+      float b = hash12(p + u_seed * 47.0 + floor(u_time * 60.0) + 23.0);
+      gl_FragColor = vec4(vec3(r, g, b), 1.0);
+      return;
     }
-    return { data, luminance };
-  });
+
+    float maxRadius = min(u_res.x, u_res.y) * 0.45;
+    float radiusPx = mix(0.0, maxRadius, pow(n, 1.8));
+    float zoneSize = mix(1.0, 32.0, pow(n, 1.2));
+
+    vec2 zone = floor(p / zoneSize);
+    vec2 zoneDir = randUnitVec(zone + u_seed * 3.7);
+    float zoneMag = radiusPx * (0.6 + 0.4 * hash12(zone + u_seed * 9.1));
+
+    vec2 microDir = randUnitVec(p + u_seed * 13.3);
+    float microMag = radiusPx * 0.25 * hash12(p + zone * 7.7 + u_seed * 5.5);
+
+    float timeAmp = pow(n, 2.2);
+    float t = floor(u_time * (20.0 + 80.0 * timeAmp));
+    vec2 timeDir = randUnitVec(zone + t + u_seed * 2.0);
+    float timeMag = radiusPx * 0.15 * timeAmp;
+
+    vec2 offsetPx = zoneDir * zoneMag + microDir * microMag + timeDir * timeMag;
+    vec2 sampleP = p + offsetPx;
+    vec2 uv = fract(sampleP / u_res);
+
+    vec3 col = texture2D(u_image, uv).rgb;
+    float sat = mix(1.0, 0.0, pow(n, 1.6));
+    col = adjustSaturation(col, sat);
+
+    float j = (hash12(p + u_seed * 101.0 + t) - 0.5) * 0.35 * pow(n, 1.3);
+    col = clamp(col + j, 0.0, 1.0);
+
+    gl_FragColor = vec4(col, 1.0);
+  }
+`;
+
+function createShader(type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    const info = gl.getShaderInfoLog(shader);
+    gl.deleteShader(shader);
+    throw new Error(`Shader compile failed: ${info}`);
+  }
+  return shader;
 }
 
-function computeGradient() {
-  const level = targetLevels[0];
-  if (!level) {
-    gradientField = null;
+function createProgram(vertexSource, fragmentSource) {
+  const program = gl.createProgram();
+  const vertexShader = createShader(gl.VERTEX_SHADER, vertexSource);
+  const fragmentShader = createShader(gl.FRAGMENT_SHADER, fragmentSource);
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    const info = gl.getProgramInfoLog(program);
+    gl.deleteProgram(program);
+    throw new Error(`Program link failed: ${info}`);
+  }
+  gl.deleteShader(vertexShader);
+  gl.deleteShader(fragmentShader);
+  return program;
+}
+
+function initWebGL() {
+  if (!gl || glProgram) {
     return;
   }
-  const yData = level.luminance;
-  const total = TARGET_SIZE * TARGET_SIZE;
-  const gx = new Float32Array(total);
-  const gy = new Float32Array(total);
-  const tx = new Float32Array(total);
-  const ty = new Float32Array(total);
-  const mag = new Float32Array(total);
-  maxGradient = 0.0001;
+  glProgram = createProgram(VERTEX_SHADER, FRAGMENT_SHADER);
+  glUniforms = {
+    position: gl.getAttribLocation(glProgram, "a_position"),
+    image: gl.getUniformLocation(glProgram, "u_image"),
+    resolution: gl.getUniformLocation(glProgram, "u_res"),
+    fidelity: gl.getUniformLocation(glProgram, "u_fidelity"),
+    time: gl.getUniformLocation(glProgram, "u_time"),
+    seed: gl.getUniformLocation(glProgram, "u_seed")
+  };
 
-  for (let y = 0; y < TARGET_SIZE; y += 1) {
-    for (let x = 0; x < TARGET_SIZE; x += 1) {
-      const idx = y * TARGET_SIZE + x;
-      const x0 = Math.max(0, x - 1);
-      const x1 = Math.min(TARGET_SIZE - 1, x + 1);
-      const y0 = Math.max(0, y - 1);
-      const y1 = Math.min(TARGET_SIZE - 1, y + 1);
+  glBuffers = {
+    quad: gl.createBuffer()
+  };
+  gl.bindBuffer(gl.ARRAY_BUFFER, glBuffers.quad);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
+    gl.STATIC_DRAW
+  );
 
-      const y00 = yData[y0 * TARGET_SIZE + x0];
-      const y01 = yData[y0 * TARGET_SIZE + x];
-      const y02 = yData[y0 * TARGET_SIZE + x1];
-      const y10 = yData[y * TARGET_SIZE + x0];
-      const y12 = yData[y * TARGET_SIZE + x1];
-      const y20 = yData[y1 * TARGET_SIZE + x0];
-      const y21 = yData[y1 * TARGET_SIZE + x];
-      const y22 = yData[y1 * TARGET_SIZE + x1];
-
-      const gxVal = -y00 + y02 - 2 * y10 + 2 * y12 - y20 + y22;
-      const gyVal = y00 + 2 * y01 + y02 - y20 - 2 * y21 - y22;
-      gx[idx] = gxVal;
-      gy[idx] = gyVal;
-      const magnitude = Math.hypot(gxVal, gyVal);
-      mag[idx] = magnitude;
-      if (magnitude > maxGradient) {
-        maxGradient = magnitude;
-      }
-      const txVal = -gyVal;
-      const tyVal = gxVal;
-      const tMag = Math.hypot(txVal, tyVal) || 1;
-      tx[idx] = txVal / tMag;
-      ty[idx] = tyVal / tMag;
-    }
-  }
-
-  gradientField = { gx, gy, tx, ty, mag };
+  targetTexture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, targetTexture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    TARGET_SIZE,
+    TARGET_SIZE,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    null
+  );
+  updateTargetTexture();
 }
 
-function rebuildTargetData() {
-  buildPyramid();
-  computeGradient();
-  initFields();
-}
-
-function wrapCoord(value, max) {
-  let v = value % max;
-  if (v < 0) {
-    v += max;
-  }
-  return v;
-}
-
-function sampleField(field, x, y) {
-  const size = TARGET_SIZE;
-  const x0 = Math.floor(x);
-  const y0 = Math.floor(y);
-  const x1 = wrapCoord(x0 + 1, size);
-  const y1 = wrapCoord(y0 + 1, size);
-  const fx = x - x0;
-  const fy = y - y0;
-
-  const x0w = wrapCoord(x0, size);
-  const y0w = wrapCoord(y0, size);
-  const idx00 = y0w * size + x0w;
-  const idx10 = y0w * size + x1;
-  const idx01 = y1 * size + x0w;
-  const idx11 = y1 * size + x1;
-
-  const v00 = field[idx00];
-  const v10 = field[idx10];
-  const v01 = field[idx01];
-  const v11 = field[idx11];
-  const vx0 = lerp(v00, v10, fx);
-  const vx1 = lerp(v01, v11, fx);
-  return lerp(vx0, vx1, fy);
-}
-
-function updateNoiseField(coherenceStrength, entropyStrength, motionDamp, flowEnabled) {
-  if (!gradientField || !flowEnabled) {
+function updateTargetTexture() {
+  if (!gl || !targetTexture) {
     return;
   }
-  const { tx, ty, mag } = gradientField;
-  const size = TARGET_SIZE;
-  const total = size * size;
-  const flowAmp = coherenceStrength * 1.6 * (1 - motionDamp);
-  const dt = coherenceStrength * 0.9 * (1 - motionDamp);
-  const injectStrength = 0.02 + entropyStrength * 0.16;
-
-  for (let i = 0; i < total; i += 1) {
-    const x = i % size;
-    const y = Math.floor(i / size);
-    const magNorm = mag[i] / maxGradient;
-    const flowScale = flowAmp * dt * (0.4 + magNorm);
-    const dx = tx[i] * flowScale;
-    const dy = ty[i] * flowScale;
-    const sample = sampleField(noiseFieldA, x - dx, y - dy);
-    const injected = sample + (Math.random() - 0.5) * injectStrength;
-    noiseFieldB[i] = clamp(injected, 0, 1);
-  }
-
-  [noiseFieldA, noiseFieldB] = [noiseFieldB, noiseFieldA];
+  gl.bindTexture(gl.TEXTURE_2D, targetTexture);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    targetCanvas
+  );
 }
 
-function updateStateField(fidelity, coherenceStrength, flowEnabled) {
-  if (!targetLevels.length || !flowEnabled) {
+function renderFrame(time) {
+  if (!gl) {
     return;
   }
-  const maxIndex = targetLevels.length - 1;
-  const coarseIndex = clamp(Math.round((1 - fidelity) * maxIndex), 0, maxIndex);
-  const coarseY = targetLevels[coarseIndex].luminance;
-  const detailY = targetLevels[0].luminance;
-  const baseStep = (0.01 + fidelity * 0.06) * coherenceStrength;
-  const detailStep = fidelity * fidelity * 0.05 * coherenceStrength;
+  initWebGL();
 
-  const total = TARGET_SIZE * TARGET_SIZE;
-  for (let i = 0; i < total; i += 1) {
-    let state = stateFieldA[i];
-    state += baseStep * (coarseY[i] - state);
-    if (detailStep > 0.001) {
-      state += detailStep * (detailY[i] - state);
-    }
-    stateFieldB[i] = clamp(state, 0, 1);
-  }
-
-  const diffusion =
-    (1 - Math.min(1, Math.abs(fidelity - 0.5) * 2)) * 0.12 * coherenceStrength;
-  if (diffusion > 0.01 && gradientField) {
-    const { tx, ty } = gradientField;
-    const size = TARGET_SIZE;
-    for (let i = 0; i < total; i += 1) {
-      const x = i % size;
-      const y = Math.floor(i / size);
-      const dx = tx[i] * 1.2;
-      const dy = ty[i] * 1.2;
-      const a = sampleField(stateFieldB, x + dx, y + dy);
-      const b = sampleField(stateFieldB, x - dx, y - dy);
-      const avg = (a + b) * 0.5;
-      stateFieldA[i] = lerp(stateFieldB[i], avg, diffusion);
-    }
-  } else {
-    [stateFieldA, stateFieldB] = [stateFieldB, stateFieldA];
-  }
-}
-
-function licNoise(x, y, tx, ty) {
-  const tapCount = 5;
-  let sum = 0;
-  let weight = 0;
-  for (let i = -2; i <= 2; i += 1) {
-    const offset = i * 1.2;
-    const sample = sampleField(noiseFieldA, x + tx * offset, y + ty * offset);
-    const w = 1 - Math.abs(i) / tapCount;
-    sum += sample * w;
-    weight += w;
-  }
-  return sum / weight;
-}
-
-function renderFrame() {
   const fidelity = clamp(Number.parseFloat(fidelityInput.value), 0, 1);
-  const coherenceStrength = smoothstep(0.5, 1.0, fidelity);
-  const entropyStrength = 1 - smoothstep(0.0, 0.5, fidelity);
-  const motionDamp = fidelity ** 3;
-  const flowEnabled = fidelity >= 0.5 && targetImageReady && !!gradientField;
+  const noiseAmount = 1 - fidelity;
+  const timeAmp = noiseAmount ** 2.2;
   const regime =
-    fidelity < 0.5 ? "ENTROPY" : fidelity < 0.85 ? "COHERENCE" : "HIGH";
-  const motionScale = (1 - motionDamp) * coherenceStrength;
+    fidelity < 0.3 ? "ENTROPY" : fidelity < 0.85 ? "SCRAMBLE" : "HIGH";
 
-  motionReadout.textContent = motionScale.toFixed(3);
+  motionReadout.textContent = timeAmp.toFixed(3);
   regimeReadout.textContent = regime;
-  entropyReadout.textContent = entropyStrength.toFixed(3);
-  coherenceReadout.textContent = coherenceStrength.toFixed(3);
-  flowReadout.textContent = flowEnabled ? "true" : "false";
+  entropyReadout.textContent = noiseAmount.toFixed(3);
+  coherenceReadout.textContent = fidelity.toFixed(3);
+  flowReadout.textContent = "true";
 
-  if (!noiseFieldA || !stateFieldA) {
-    initFields();
-  }
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  gl.useProgram(glProgram);
 
-  if (fidelity < 0.5) {
-    const total = TARGET_SIZE * TARGET_SIZE;
-    const seed = Math.floor(performance.now());
-    const contrast = 2.4 + entropyStrength * 0.6;
-    const brighten = 0.08 + entropyStrength * 0.12;
-    for (let i = 0; i < total; i += 1) {
-      const x = i % TARGET_SIZE;
-      const y = Math.floor(i / TARGET_SIZE);
-      const noise = hashNoise(x, y, frameCounter, seed);
-      const value = clamp(contrastNoise(noise, contrast) + brighten, 0, 1);
-      const gray = Math.floor(value * 255);
-      const dataIndex = i * 4;
-      outputImageData.data[dataIndex] = gray;
-      outputImageData.data[dataIndex + 1] = gray;
-      outputImageData.data[dataIndex + 2] = gray;
-      outputImageData.data[dataIndex + 3] = 255;
-    }
-  } else if (targetImageReady && targetLevels.length) {
-    updateNoiseField(coherenceStrength, entropyStrength, motionDamp, flowEnabled);
-    updateStateField(fidelity, coherenceStrength, flowEnabled);
+  gl.bindBuffer(gl.ARRAY_BUFFER, glBuffers.quad);
+  gl.enableVertexAttribArray(glUniforms.position);
+  gl.vertexAttribPointer(glUniforms.position, 2, gl.FLOAT, false, 0, 0);
 
-    const maxIndex = targetLevels.length - 1;
-    const colorIndex = clamp(Math.round((1 - fidelity) * maxIndex), 0, maxIndex);
-    const level = targetLevels[colorIndex];
-    const baseData = level.data;
-    const baseY = level.luminance;
-    const total = TARGET_SIZE * TARGET_SIZE;
-    const grainMix = 0.08 + (1 - fidelity) * 0.35;
-    const { tx, ty } = gradientField || { tx: null, ty: null };
-    const transition = smoothstep(0.45, 0.55, fidelity);
-    const seed = Math.floor(performance.now());
-    const noiseContrast = 1.8;
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, targetTexture);
+  gl.uniform1i(glUniforms.image, 0);
+  gl.uniform2f(glUniforms.resolution, canvas.width, canvas.height);
+  gl.uniform1f(glUniforms.fidelity, fidelity);
+  gl.uniform1f(glUniforms.time, (time || 0) * 0.001);
+  gl.uniform1f(glUniforms.seed, noiseSeed);
 
-    for (let i = 0; i < total; i += 1) {
-      const x = i % TARGET_SIZE;
-      const y = Math.floor(i / TARGET_SIZE);
-      const tX = tx ? tx[i] : 1;
-      const tY = ty ? ty[i] : 0;
-      const lic = licNoise(x, y, tX, tY);
-      const grainDetail = (lic - 0.5) * 2;
-      const yOut = clamp(stateFieldA[i] + grainDetail * grainMix, 0, 1);
-
-      const dataIndex = i * 4;
-      const noise = hashNoise(x, y, frameCounter, seed);
-      const noiseValue = contrastNoise(noise, noiseContrast);
-      const r = baseData[dataIndex];
-      const g = baseData[dataIndex + 1];
-      const b = baseData[dataIndex + 2];
-      const ratio = yOut / (baseY[i] + 0.001);
-      const outR = clamp(r * ratio, 0, 255);
-      const outG = clamp(g * ratio, 0, 255);
-      const outB = clamp(b * ratio, 0, 255);
-      outputImageData.data[dataIndex] = lerp(noiseValue * 255, outR, transition);
-      outputImageData.data[dataIndex + 1] = lerp(
-        noiseValue * 255,
-        outG,
-        transition
-      );
-      outputImageData.data[dataIndex + 2] = lerp(
-        noiseValue * 255,
-        outB,
-        transition
-      );
-      outputImageData.data[dataIndex + 3] = 255;
-    }
-  } else {
-    const total = TARGET_SIZE * TARGET_SIZE;
-    const seed = Math.floor(performance.now());
-    const transition = smoothstep(0.45, 0.55, fidelity);
-    const noiseContrast = 1.8;
-    for (let i = 0; i < total; i += 1) {
-      const x = i % TARGET_SIZE;
-      const y = Math.floor(i / TARGET_SIZE);
-      const noise = hashNoise(x, y, frameCounter, seed);
-      const noiseValue = contrastNoise(noise, noiseContrast);
-      const structured = clamp(
-        stateFieldA[i] + (noiseFieldA[i] - 0.5) * 0.4,
-        0,
-        1
-      );
-      const value = lerp(noiseValue, structured, transition);
-      const dataIndex = i * 4;
-      const gray = Math.floor(value * 255);
-      outputImageData.data[dataIndex] = gray;
-      outputImageData.data[dataIndex + 1] = gray;
-      outputImageData.data[dataIndex + 2] = gray;
-      outputImageData.data[dataIndex + 3] = 255;
-    }
-  }
-
-  outputCtx.putImageData(outputImageData, 0, 0);
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(outputCanvas, 0, 0, canvas.width, canvas.height);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
   frameCounter += 1;
   requestAnimationFrame(renderFrame);
@@ -881,7 +741,7 @@ function drawTargetToCanvas(image) {
   targetCtx.clearRect(0, 0, TARGET_SIZE, TARGET_SIZE);
   targetCtx.drawImage(image, dx, dy, drawWidth, drawHeight);
   targetImageReady = true;
-  rebuildTargetData();
+  updateTargetTexture();
 }
 
 function handleTargetImage(file) {
@@ -903,9 +763,7 @@ function handleTargetImage(file) {
 function clearTargetImage() {
   targetCtx.clearRect(0, 0, TARGET_SIZE, TARGET_SIZE);
   targetImageReady = false;
-  targetLevels = [];
-  gradientField = null;
-  initFields();
+  updateTargetTexture();
   targetPreview.src = "";
   if (targetImageUrl) {
     URL.revokeObjectURL(targetImageUrl);
@@ -930,12 +788,18 @@ function simulateBurstMessages() {
     addMessage(sample);
   }
   buildClusters();
+  bumpSeed();
+}
+
+function bumpSeed() {
+  noiseSeed = (noiseSeed + 1) % 10000;
 }
 
 submitText.addEventListener("click", () => {
   addMessage(inputText.value);
   inputText.value = "";
   buildClusters();
+  bumpSeed();
 });
 
 simulateBurst.addEventListener("click", simulateBurstMessages);
@@ -948,6 +812,13 @@ targetImageInput.addEventListener("change", (event) => {
   handleTargetImage(event.target.files[0]);
 });
 clearTargetImageBtn.addEventListener("click", clearTargetImage);
+
+const defaultImage = new Image();
+defaultImage.onload = () => {
+  drawTargetToCanvas(defaultImage);
+  targetPreview.src = "default.png";
+};
+defaultImage.src = "default.png";
 
 BOOTSTRAP_TOKENS.forEach((token) => addMessage(token));
 buildClusters();

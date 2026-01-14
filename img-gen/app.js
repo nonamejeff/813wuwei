@@ -825,7 +825,7 @@ async function sendWords() {
 
 async function generateImage() {
   const promptText = promptOut?.value.trim() || lastPrompt;
-  const size = imageSizeSelect ? imageSizeSelect.value : "1024x1024";
+  const size = imageSizeSelect ? imageSizeSelect.value : "auto";
 
   if (!promptText) {
     setImageStatus("Add or generate a prompt first.");

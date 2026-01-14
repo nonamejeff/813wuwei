@@ -573,7 +573,7 @@ const FRAGMENT_SHADER = `
     } else {
       coverScale.x = texAspect / screenAspect;
     }
-    uv = (uv - 0.5) * coverScale + 0.5;
+    uv = (uv - 0.5) / coverScale + 0.5;
     uv = clamp(uv, 0.0, 1.0);
 
     vec2 texel = uv * u_tex_res;
@@ -587,7 +587,7 @@ const FRAGMENT_SHADER = `
 
     vec2 offsetPx = zoneDir * zoneMag + microDir * microMag;
     vec2 sampleUv = (sampleP + offsetPx) / u_res;
-    sampleUv = (sampleUv - 0.5) * coverScale + 0.5;
+    sampleUv = (sampleUv - 0.5) / coverScale + 0.5;
     sampleUv = clamp(sampleUv, 0.0, 1.0);
 
     vec3 col = texture2D(u_image, sampleUv).rgb;

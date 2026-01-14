@@ -1,5 +1,5 @@
 const MAX_PROMPT_LENGTH = 4000;
-const ALLOWED_SIZES = new Set(["512x512", "1024x1024", "1024x1792"]);
+const ALLOWED_SIZES = new Set(["512x512", "1024x1024", "1024x1536", "1536x1024"]);
 const MAX_WORD_ENTRIES = 50;
 const promptSessions = new Map();
 

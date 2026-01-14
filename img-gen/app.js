@@ -6,6 +6,7 @@ const DEFAULT_OVERRIDE_PROMPT =
   "abstract, non-figurative, organic field texture, subdued tones, imperfect continuity, wabi-sabi restraint, atmospheric, film grain, (bay:0.84), (salt:0.84), (haze:0.84), (late:0.84), (traffic:0.84), (glow:0.85), (wet:0.84), (pavement:0.84), (slow:0.84), (currents:0.84), (sirens:0.80), (ladder:0.80), (basin:0.80)";
 
 const DEFAULT_TARGET_SIZE = 512;
+const WORKER_URL = "https://img-gen-backend.nnjeff-prod.workers.dev";
 
 const BOOTSTRAP_TOKENS = [
   "heat",
@@ -264,6 +265,10 @@ const manualPrompt = document.getElementById("manualPrompt");
 const targetImageInput = document.getElementById("targetImageInput");
 const targetPreview = document.getElementById("targetPreview");
 const clearTargetImageBtn = document.getElementById("clearTargetImage");
+const generateImageBtn = document.getElementById("generateImageBtn");
+const imageSizeSelect = document.getElementById("imageSize");
+const imageStatus = document.getElementById("imageStatus");
+const generatedImage = document.getElementById("generatedImage");
 const promptOutput = document.getElementById("promptOutput");
 const negativeOutput = document.getElementById("negativeOutput");
 const promptTimestamp = document.getElementById("promptTimestamp");
@@ -757,6 +762,55 @@ function copyPrompt() {
   });
 }
 
+function setImageStatus(message) {
+  if (!imageStatus) {
+    return;
+  }
+  imageStatus.textContent = message || "—";
+}
+
+async function handleGenerateImage() {
+  const promptText = manualPrompt.value.trim() || lastPrompt;
+  const size = imageSizeSelect ? imageSizeSelect.value : "512x512";
+
+  if (!promptText) {
+    setImageStatus("Add or generate a prompt first.");
+    return;
+  }
+
+  if (generateImageBtn) {
+    generateImageBtn.disabled = true;
+  }
+  setImageStatus("Generating image…");
+
+  try {
+    const response = await fetch(`${WORKER_URL}/v1/img-gen`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ prompt: promptText, size })
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = data?.error || "Image generation failed.";
+      throw new Error(message);
+    }
+
+    if (generatedImage && data?.image_data_url) {
+      generatedImage.src = data.image_data_url;
+    }
+    setImageStatus("Image ready.");
+  } catch (error) {
+    setImageStatus(error?.message || "Image generation failed.");
+  } finally {
+    if (generateImageBtn) {
+      generateImageBtn.disabled = false;
+    }
+  }
+}
+
 function drawTargetToCanvas(image) {
   setTargetCanvasSize(image.width, image.height);
   targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
@@ -834,6 +888,9 @@ targetImageInput.addEventListener("change", (event) => {
   handleTargetImage(event.target.files[0]);
 });
 clearTargetImageBtn.addEventListener("click", clearTargetImage);
+if (generateImageBtn) {
+  generateImageBtn.addEventListener("click", handleGenerateImage);
+}
 
 const defaultImage = new Image();
 defaultImage.onload = () => {

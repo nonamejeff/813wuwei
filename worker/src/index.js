@@ -2,6 +2,193 @@ const MAX_PROMPT_LENGTH = 4000;
 const ALLOWED_SIZES = new Set(["512x512", "1024x1024", "1024x1536", "1536x1024"]);
 const MAX_WORD_ENTRIES = 50;
 const promptSessions = new Map();
+const STYLE_SPINE =
+  "abstract, non-figurative, atmospheric field texture, wabi-sabi restraint, imperfect continuity, subdued palette, soft film grain, natural diffusion, quiet contrast, no subjects, no objects, no readable symbols";
+const NON_LITERAL_RULES =
+  "evoke the mood of these words without depicting them; no literal landscapes, no plants, no animals, no people, no buildings, no readable text; no recognizable objects, no icons, no symbols, no signage; non-illustrative, non-narrative, no scene, no horizon";
+const STOPWORDS = new Set([
+  "a",
+  "about",
+  "above",
+  "after",
+  "again",
+  "against",
+  "all",
+  "am",
+  "an",
+  "and",
+  "any",
+  "are",
+  "as",
+  "at",
+  "be",
+  "because",
+  "been",
+  "before",
+  "being",
+  "below",
+  "between",
+  "both",
+  "but",
+  "by",
+  "can",
+  "could",
+  "did",
+  "do",
+  "does",
+  "doing",
+  "down",
+  "during",
+  "each",
+  "few",
+  "for",
+  "from",
+  "further",
+  "had",
+  "has",
+  "have",
+  "having",
+  "he",
+  "her",
+  "here",
+  "hers",
+  "herself",
+  "him",
+  "himself",
+  "his",
+  "how",
+  "i",
+  "if",
+  "in",
+  "into",
+  "is",
+  "it",
+  "its",
+  "itself",
+  "just",
+  "me",
+  "more",
+  "most",
+  "my",
+  "myself",
+  "no",
+  "nor",
+  "not",
+  "now",
+  "of",
+  "off",
+  "on",
+  "once",
+  "only",
+  "or",
+  "other",
+  "our",
+  "ours",
+  "ourselves",
+  "out",
+  "over",
+  "own",
+  "same",
+  "she",
+  "should",
+  "so",
+  "some",
+  "such",
+  "than",
+  "that",
+  "the",
+  "their",
+  "theirs",
+  "them",
+  "themselves",
+  "then",
+  "there",
+  "these",
+  "they",
+  "this",
+  "those",
+  "through",
+  "to",
+  "too",
+  "under",
+  "until",
+  "up",
+  "very",
+  "was",
+  "we",
+  "were",
+  "what",
+  "when",
+  "where",
+  "which",
+  "while",
+  "who",
+  "whom",
+  "why",
+  "with",
+  "would",
+  "you",
+  "your",
+  "yours",
+  "yourself",
+  "yourselves"
+]);
+const AFFECT_MAP = new Map([
+  ["morose", "subdued morose"],
+  ["tender", "tender"],
+  ["anxious", "anxious"],
+  ["calm", "calm"],
+  ["bleak", "bleak"],
+  ["warm", "warm"],
+  ["quiet", "quiet"],
+  ["introspective", "introspective"],
+  ["soft", "soft"],
+  ["hushed", "hushed"]
+]);
+const MOTION_MAP = new Map([
+  ["drift", "slow drift"],
+  ["surge", "gentle surge"],
+  ["tremor", "faint tremor"],
+  ["movement", "subtle motion"],
+  ["motion", "subtle motion"],
+  ["slow", "slow drift"],
+  ["stutter", "occasional stutter"],
+  ["flow", "soft flow"],
+  ["pulse", "distant pulse"],
+  ["thrum", "low thrum"],
+  ["curl", "soft curl"],
+  ["eddy", "subtle eddy"]
+]);
+const MATERIAL_MAP = new Map([
+  ["haze", "salt haze"],
+  ["salt", "salt haze"],
+  ["grit", "fine grit"],
+  ["wet", "wet sheen"],
+  ["paper", "paper fiber"],
+  ["silt", "silted texture"],
+  ["grain", "fine grain"],
+  ["brine", "briny moisture"],
+  ["smog", "smudged haze"],
+  ["fog", "soft fog"]
+]);
+const LIGHT_MAP = new Map([
+  ["late", "late glow"],
+  ["dusk", "dusk light"],
+  ["neon", "neon bleed"],
+  ["glow", "soft glow"],
+  ["overcast", "overcast diffusion"],
+  ["shadow", "low shadow"],
+  ["twilight", "twilight wash"]
+]);
+const COLOR_MAP = new Map([
+  ["persimmon", ["muted persimmon orange", "warm fruit-skin hue"]],
+  ["pampas", ["dry straw-beige", "soft fibrous texture"]]
+]);
+const PLACE_MAP = new Map([
+  ["bay", ["brackish", "coastal humidity", "tidal"]],
+  ["traffic", ["distant mechanical pulse", "urban hum"]],
+  ["sirens", ["thin high-frequency tension", "alertness"]]
+]);
 
 function parseAllowedOrigins(value) {
   return (value || "")
@@ -60,21 +247,123 @@ function normalizeTokens(words) {
   return words
     .split(/[\s,]+/)
     .map((token) => token.trim().toLowerCase())
-    .filter(Boolean);
+    .filter((token) => token && !STOPWORDS.has(token));
 }
 
-function buildPrompt(tokens, fidelity) {
-  const uniqueTokens = [...new Set(tokens)];
-  const limitedTokens = uniqueTokens.slice(0, 60);
-  const fidelityValue = Number.isFinite(fidelity) ? fidelity : 0.5;
-  let descriptor = "balanced, evocative, semi-literal composition";
-  if (fidelityValue <= 0.33) {
-    descriptor = "abstract, experimental, atmospheric impression";
-  } else if (fidelityValue >= 0.66) {
-    descriptor = "literal, detailed, high-fidelity depiction";
+function addBucket(bucket, phrase, weight) {
+  bucket.set(phrase, (bucket.get(phrase) || 0) + weight);
+}
+
+function addBucketList(bucket, phrases, weight) {
+  phrases.forEach((phrase) => addBucket(bucket, phrase, weight));
+}
+
+function pickTop(bucket, count, fallback) {
+  const items = [...bucket.entries()].sort((a, b) => b[1] - a[1]);
+  const selected = items.slice(0, count);
+  if (!selected.length && fallback?.length) {
+    return fallback.map((phrase, index) => ({ phrase, weight: fallback.length - index }));
   }
-  const tokenPhrase = limitedTokens.length ? ` of ${limitedTokens.join(", ")}` : "";
-  return `${descriptor}${tokenPhrase}`.slice(0, MAX_PROMPT_LENGTH);
+  return selected.map(([phrase, weight]) => ({ phrase, weight }));
+}
+
+function buildMoodLine({ affect, motion, material, light, color, place }, weighted) {
+  const parts = [];
+  if (motion.length) {
+    parts.push(`evoke motion as temperature and pressure: ${motion.join(", ")}`);
+  }
+  if (affect.length) {
+    parts.push(`mood is ${affect.join(", ")}`);
+  }
+  if (material.length) {
+    parts.push(`surface feels ${material.join(", ")}`);
+  }
+  if (light.length) {
+    parts.push(`light is ${light.join(", ")}`);
+  }
+  if (color.length) {
+    parts.push(`color suggests ${color.join(", ")}`);
+  }
+  if (place.length) {
+    parts.push(`air carries ${place.join(", ")}`);
+  }
+  if (weighted.length) {
+    parts.push(`modifiers: ${weighted.join(", ")}`);
+  }
+  return parts.join("; ");
+}
+
+function buildPrompt(tokens) {
+  const tokenCounts = tokens.reduce((acc, token) => {
+    acc[token] = (acc[token] || 0) + 1;
+    return acc;
+  }, {});
+
+  const buckets = {
+    affect: new Map(),
+    motion: new Map(),
+    material: new Map(),
+    light: new Map(),
+    color: new Map(),
+    place: new Map()
+  };
+
+  Object.entries(tokenCounts).forEach(([token, weight]) => {
+    if (AFFECT_MAP.has(token)) {
+      addBucket(buckets.affect, AFFECT_MAP.get(token), weight);
+      return;
+    }
+    if (MOTION_MAP.has(token)) {
+      addBucket(buckets.motion, MOTION_MAP.get(token), weight);
+      return;
+    }
+    if (MATERIAL_MAP.has(token)) {
+      addBucket(buckets.material, MATERIAL_MAP.get(token), weight);
+      return;
+    }
+    if (LIGHT_MAP.has(token)) {
+      addBucket(buckets.light, LIGHT_MAP.get(token), weight);
+      return;
+    }
+    if (COLOR_MAP.has(token)) {
+      addBucketList(buckets.color, COLOR_MAP.get(token), weight);
+      return;
+    }
+    if (PLACE_MAP.has(token)) {
+      addBucketList(buckets.place, PLACE_MAP.get(token), weight);
+    }
+  });
+
+  const affect = pickTop(buckets.affect, 2, ["subdued", "introspective"]);
+  const motion = pickTop(buckets.motion, 2, ["slow drift", "faint stutter"]);
+  const material = pickTop(buckets.material, 2, ["wet grit", "salt haze"]);
+  const light = pickTop(buckets.light, 2, ["late glow", "soft diffusion"]);
+  const color = pickTop(buckets.color, 2, ["muted warmth", "cool shadow"]);
+  const place = pickTop(buckets.place, 1, []);
+
+  const selected = [...affect, ...motion, ...material, ...light, ...color, ...place];
+  const maxWeight = Math.max(1, ...selected.map((item) => item.weight));
+  const weighted = selected
+    .slice(0, 8)
+    .map((item) => {
+      const normalized = item.weight / maxWeight;
+      const weight = Math.min(1.6, 0.8 + normalized * 0.8);
+      return `(${item.phrase}:${weight.toFixed(2)})`;
+    });
+
+  const moodLine = buildMoodLine(
+    {
+      affect: affect.map((item) => item.phrase),
+      motion: motion.map((item) => item.phrase),
+      material: material.map((item) => item.phrase),
+      light: light.map((item) => item.phrase),
+      color: color.map((item) => item.phrase),
+      place: place.map((item) => item.phrase)
+    },
+    weighted
+  );
+
+  return `${STYLE_SPINE}\n${moodLine}\n${NON_LITERAL_RULES}`.slice(0, MAX_PROMPT_LENGTH);
 }
 
 export default {
@@ -114,8 +403,6 @@ export default {
       }
 
       const words = typeof payload?.words === "string" ? payload.words.trim() : "";
-      const fidelity = typeof payload?.fidelity === "number" ? payload.fidelity : undefined;
-
       if (!words) {
         return jsonResponse(400, { error: "Words are required" }, corsHeaders);
       }
@@ -127,7 +414,7 @@ export default {
       promptSessions.set(sid, nextEntries);
 
       const tokens = normalizeTokens(nextEntries.join(" "));
-      const prompt = buildPrompt(tokens, fidelity);
+      const prompt = buildPrompt(tokens);
       const headers = setCookie ? { "Set-Cookie": setCookie } : null;
       return jsonResponse(
         200,

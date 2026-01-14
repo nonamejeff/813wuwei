@@ -1,9 +1,12 @@
-const BASE_PROMPT =
-  "abstract, non-figurative, organic field texture, subdued tones, imperfect continuity, wabi-sabi restraint, atmospheric, film grain";
+const STYLE_SPINE =
+  "abstract, non-figurative, atmospheric field texture, wabi-sabi restraint, imperfect continuity, subdued palette, soft film grain, natural diffusion, quiet contrast, no subjects, no objects, no readable symbols";
+const NON_LITERAL_RULES =
+  "evoke the mood of these words without depicting them; no literal landscapes, no plants, no animals, no people, no buildings, no readable text; no recognizable objects, no icons, no symbols, no signage; non-illustrative, non-narrative, no scene, no horizon";
 const NEGATIVE_PROMPT =
-  "text, letters, typography, logo, map, buildings, faces, characters, icons, signage, illustration, cartoon";
-const DEFAULT_OVERRIDE_PROMPT =
-  "abstract, non-figurative, organic field texture, subdued tones, imperfect continuity, wabi-sabi restraint, atmospheric, film grain, (bay:0.84), (salt:0.84), (haze:0.84), (late:0.84), (traffic:0.84), (glow:0.85), (wet:0.84), (pavement:0.84), (slow:0.84), (currents:0.84), (sirens:0.80), (ladder:0.80), (basin:0.80)";
+  "literal objects, landscapes, plants, animals, people, buildings, faces, text, letters, typography, logos, icons, signage, symbols, illustration, cartoon, horizon";
+const DEFAULT_OVERRIDE_PROMPT = `${STYLE_SPINE}
+evoke motion as temperature and pressure: slow drift, faint stutter; mood is subdued, introspective; surface feels wet grit, salt haze; light is late glow, soft diffusion; color suggests muted persimmon warmth, cool shadow; modifiers: (slow drift:1.12), (wet grit:1.04), (late glow:1.00)
+${NON_LITERAL_RULES}`;
 
 const DEFAULT_TARGET_SIZE = 512;
 const DEFAULT_IMAGE_SIZE = "1536x1024";
@@ -240,6 +243,62 @@ const STOPWORDS = new Set([
   "yours",
   "yourself",
   "yourselves"
+]);
+const AFFECT_MAP = new Map([
+  ["morose", "subdued morose"],
+  ["tender", "tender"],
+  ["anxious", "anxious"],
+  ["calm", "calm"],
+  ["bleak", "bleak"],
+  ["warm", "warm"],
+  ["quiet", "quiet"],
+  ["introspective", "introspective"],
+  ["soft", "soft"],
+  ["hushed", "hushed"]
+]);
+const MOTION_MAP = new Map([
+  ["drift", "slow drift"],
+  ["surge", "gentle surge"],
+  ["tremor", "faint tremor"],
+  ["movement", "subtle motion"],
+  ["motion", "subtle motion"],
+  ["slow", "slow drift"],
+  ["stutter", "occasional stutter"],
+  ["flow", "soft flow"],
+  ["pulse", "distant pulse"],
+  ["thrum", "low thrum"],
+  ["curl", "soft curl"],
+  ["eddy", "subtle eddy"]
+]);
+const MATERIAL_MAP = new Map([
+  ["haze", "salt haze"],
+  ["salt", "salt haze"],
+  ["grit", "fine grit"],
+  ["wet", "wet sheen"],
+  ["paper", "paper fiber"],
+  ["silt", "silted texture"],
+  ["grain", "fine grain"],
+  ["brine", "briny moisture"],
+  ["smog", "smudged haze"],
+  ["fog", "soft fog"]
+]);
+const LIGHT_MAP = new Map([
+  ["late", "late glow"],
+  ["dusk", "dusk light"],
+  ["neon", "neon bleed"],
+  ["glow", "soft glow"],
+  ["overcast", "overcast diffusion"],
+  ["shadow", "low shadow"],
+  ["twilight", "twilight wash"]
+]);
+const COLOR_MAP = new Map([
+  ["persimmon", ["muted persimmon orange", "warm fruit-skin hue"]],
+  ["pampas", ["dry straw-beige", "soft fibrous texture"]]
+]);
+const PLACE_MAP = new Map([
+  ["bay", ["brackish", "coastal humidity", "tidal"]],
+  ["traffic", ["distant mechanical pulse", "urban hum"]],
+  ["sirens", ["thin high-frequency tension", "alertness"]]
 ]);
 
 const canvas = document.getElementById("field");
@@ -501,6 +560,117 @@ function motionCurve(value) {
   return Math.log2(1 + 7 * value) / Math.log2(8);
 }
 
+function addBucket(bucket, phrase, weight) {
+  bucket.set(phrase, (bucket.get(phrase) || 0) + weight);
+}
+
+function addBucketList(bucket, phrases, weight) {
+  phrases.forEach((phrase) => addBucket(bucket, phrase, weight));
+}
+
+function pickTop(bucket, count, fallback) {
+  const items = [...bucket.entries()].sort((a, b) => b[1] - a[1]);
+  const selected = items.slice(0, count);
+  if (!selected.length && fallback?.length) {
+    return fallback.map((phrase, index) => ({ phrase, weight: fallback.length - index }));
+  }
+  return selected.map(([phrase, weight]) => ({ phrase, weight }));
+}
+
+function buildMoodLine({ affect, motion, material, light, color, place }, weighted) {
+  const parts = [];
+  if (motion.length) {
+    parts.push(`evoke motion as temperature and pressure: ${motion.join(", ")}`);
+  }
+  if (affect.length) {
+    parts.push(`mood is ${affect.join(", ")}`);
+  }
+  if (material.length) {
+    parts.push(`surface feels ${material.join(", ")}`);
+  }
+  if (light.length) {
+    parts.push(`light is ${light.join(", ")}`);
+  }
+  if (color.length) {
+    parts.push(`color suggests ${color.join(", ")}`);
+  }
+  if (place.length) {
+    parts.push(`air carries ${place.join(", ")}`);
+  }
+  if (weighted.length) {
+    parts.push(`modifiers: ${weighted.join(", ")}`);
+  }
+  return parts.join("; ");
+}
+
+function buildMoodPrompt(weightedTokens) {
+  const buckets = {
+    affect: new Map(),
+    motion: new Map(),
+    material: new Map(),
+    light: new Map(),
+    color: new Map(),
+    place: new Map()
+  };
+
+  weightedTokens.forEach(({ token, weight }) => {
+    if (AFFECT_MAP.has(token)) {
+      addBucket(buckets.affect, AFFECT_MAP.get(token), weight);
+      return;
+    }
+    if (MOTION_MAP.has(token)) {
+      addBucket(buckets.motion, MOTION_MAP.get(token), weight);
+      return;
+    }
+    if (MATERIAL_MAP.has(token)) {
+      addBucket(buckets.material, MATERIAL_MAP.get(token), weight);
+      return;
+    }
+    if (LIGHT_MAP.has(token)) {
+      addBucket(buckets.light, LIGHT_MAP.get(token), weight);
+      return;
+    }
+    if (COLOR_MAP.has(token)) {
+      addBucketList(buckets.color, COLOR_MAP.get(token), weight);
+      return;
+    }
+    if (PLACE_MAP.has(token)) {
+      addBucketList(buckets.place, PLACE_MAP.get(token), weight);
+    }
+  });
+
+  const affect = pickTop(buckets.affect, 2, ["subdued", "introspective"]);
+  const motion = pickTop(buckets.motion, 2, ["slow drift", "faint stutter"]);
+  const material = pickTop(buckets.material, 2, ["wet grit", "salt haze"]);
+  const light = pickTop(buckets.light, 2, ["late glow", "soft diffusion"]);
+  const color = pickTop(buckets.color, 2, ["muted warmth", "cool shadow"]);
+  const place = pickTop(buckets.place, 1, []);
+
+  const selected = [...affect, ...motion, ...material, ...light, ...color, ...place];
+  const maxWeight = Math.max(1, ...selected.map((item) => item.weight));
+  const weighted = selected
+    .slice(0, 8)
+    .map((item) => {
+      const normalized = item.weight / maxWeight;
+      const weight = Math.min(1.6, 0.8 + normalized * 0.8);
+      return `(${item.phrase}:${weight.toFixed(2)})`;
+    });
+
+  const moodLine = buildMoodLine(
+    {
+      affect: affect.map((item) => item.phrase),
+      motion: motion.map((item) => item.phrase),
+      material: material.map((item) => item.phrase),
+      light: light.map((item) => item.phrase),
+      color: color.map((item) => item.phrase),
+      place: place.map((item) => item.phrase)
+    },
+    weighted
+  );
+
+  return `${STYLE_SPINE}\n${moodLine}\n${NON_LITERAL_RULES}`;
+}
+
 function setTargetCanvasSize(width, height) {
   const nextWidth = Math.max(1, Math.floor(width));
   const nextHeight = Math.max(1, Math.floor(height));
@@ -740,15 +910,12 @@ function generatePrompt() {
     });
   });
   const limited = terms.slice(0, 30);
-  const weights = limited.map((term) => getDecayedCount(term, now));
-  const maxWeight = Math.max(1, ...weights);
-  const weightedTerms = limited.map((term, idx) => {
-    const normalized = Math.sqrt(weights[idx]) / Math.sqrt(maxWeight);
-    const weight = Math.min(1.8, Math.max(0.8, 0.8 + normalized));
-    return `(${term}:${weight.toFixed(2)})`;
-  });
+  const weightedTokens = limited.map((term) => ({
+    token: term,
+    weight: getDecayedCount(term, now)
+  }));
 
-  lastPrompt = [BASE_PROMPT, ...weightedTerms].join(", ");
+  lastPrompt = buildMoodPrompt(weightedTokens);
   lastNegative = NEGATIVE_PROMPT;
 
   promptBlock.value = `PROMPT:\n${lastPrompt}\n\nNEGATIVE:\n${lastNegative}`;

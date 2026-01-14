@@ -671,6 +671,40 @@ function buildMoodPrompt(weightedTokens) {
   return `${STYLE_SPINE}\n${moodLine}\n${NON_LITERAL_RULES}`;
 }
 
+function buildPromptFromWords(words) {
+  const tokens = tokenize(words);
+  if (!tokens.length) {
+    return "";
+  }
+  const counts = new Map();
+  tokens.forEach((token) => {
+    counts.set(token, (counts.get(token) || 0) + 1);
+  });
+  const weightedTokens = [...counts.entries()].map(([token, weight]) => ({
+    token,
+    weight
+  }));
+  return buildMoodPrompt(weightedTokens);
+}
+
+function updatePromptDisplay() {
+  if (promptBlock) {
+    promptBlock.value = `PROMPT:\n${lastPrompt}\n\nNEGATIVE:\n${lastNegative}`;
+  }
+  if (promptOutput) {
+    promptOutput.textContent = lastPrompt;
+  }
+  if (negativeOutput) {
+    negativeOutput.textContent = lastNegative;
+  }
+  if (promptTimestamp) {
+    promptTimestamp.textContent = new Date().toLocaleTimeString();
+  }
+  if (promptOut) {
+    promptOut.value = lastPrompt;
+  }
+}
+
 function setTargetCanvasSize(width, height) {
   const nextWidth = Math.max(1, Math.floor(width));
   const nextHeight = Math.max(1, Math.floor(height));
@@ -917,14 +951,7 @@ function generatePrompt() {
 
   lastPrompt = buildMoodPrompt(weightedTokens);
   lastNegative = NEGATIVE_PROMPT;
-
-  promptBlock.value = `PROMPT:\n${lastPrompt}\n\nNEGATIVE:\n${lastNegative}`;
-  promptOutput.textContent = lastPrompt;
-  negativeOutput.textContent = lastNegative;
-  promptTimestamp.textContent = new Date().toLocaleTimeString();
-  if (promptOut) {
-    promptOut.value = lastPrompt;
-  }
+  updatePromptDisplay();
 }
 
 function copyPrompt() {
@@ -955,7 +982,15 @@ async function sendWords() {
   if (sendWordsBtn) {
     sendWordsBtn.disabled = true;
   }
-  setImageStatus("Sending words…");
+  const localPrompt = buildPromptFromWords(words);
+  if (localPrompt) {
+    lastPrompt = localPrompt;
+    lastNegative = NEGATIVE_PROMPT;
+    updatePromptDisplay();
+    setImageStatus("Updating prompt…");
+  } else {
+    setImageStatus("Sending words…");
+  }
 
   try {
     const response = await fetch(`${WORKER_URL}/v1/prompt/add`, {
@@ -974,13 +1009,11 @@ async function sendWords() {
     }
 
     const nextPrompt = data?.prompt || "";
-    if (promptOut) {
-      promptOut.value = nextPrompt;
+    if (nextPrompt) {
+      lastPrompt = nextPrompt;
+      lastNegative = NEGATIVE_PROMPT;
+      updatePromptDisplay();
     }
-    lastPrompt = nextPrompt;
-    promptBlock.value = `PROMPT:\n${nextPrompt}\n\nNEGATIVE:\n${lastNegative}`;
-    promptOutput.textContent = nextPrompt;
-    promptTimestamp.textContent = new Date().toLocaleTimeString();
     setImageStatus("Prompt updated.");
   } catch (error) {
     setImageStatus(error?.message || "Failed to aggregate words.");

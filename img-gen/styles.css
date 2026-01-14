@@ -19,6 +19,62 @@ body {
   left: 50%;
   transform: translate(-50%, -50%);
   display: block;
+  pointer-events: none;
+}
+
+.simple-ui {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  width: min(360px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(10, 10, 12, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  z-index: 6;
+}
+
+.simple-ui textarea,
+.simple-ui input,
+.simple-ui button,
+.simple-ui select {
+  font-family: inherit;
+  color: inherit;
+}
+
+.simple-ui textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 72px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.simple-ui button {
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f2f2f2;
+  cursor: pointer;
+}
+
+.simple-ui input[type="range"] {
+  width: 100%;
+}
+
+.simple-ui img {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  display: block;
 }
 
 .dev-panel {

@@ -242,6 +242,10 @@ const STOPWORDS = new Set([
 
 const canvas = document.getElementById("field");
 const gl = canvas.getContext("webgl");
+const screenSize = {
+  width: window.screen.width,
+  height: window.screen.height
+};
 
 const fidelityInput = document.getElementById("fidelity");
 const kInput = document.getElementById("kValue");
@@ -292,8 +296,15 @@ let lastPrompt = "";
 let lastNegative = NEGATIVE_PROMPT;
 
 function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  const dpr = window.devicePixelRatio || 1;
+  const nextWidth = Math.max(1, Math.floor(screenSize.width * dpr));
+  const nextHeight = Math.max(1, Math.floor(screenSize.height * dpr));
+  if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+    canvas.width = nextWidth;
+    canvas.height = nextHeight;
+  }
+  canvas.style.width = `${screenSize.width}px`;
+  canvas.style.height = `${screenSize.height}px`;
 }
 
 window.addEventListener("resize", resize);

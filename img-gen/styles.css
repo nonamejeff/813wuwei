@@ -10,13 +10,14 @@ body {
   background: #070708;
   color: #d8d8d8;
   font-family: "SF Pro Text", "Segoe UI", sans-serif;
+  overflow: hidden;
 }
 
 #field {
   position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   display: block;
 }
 

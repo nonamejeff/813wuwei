@@ -28,3 +28,7 @@ npm run deploy
 GitHub Pages remains unchanged.
 
 Delete any apikey.txt and rotate the key if needed.
+
+## Img-Gen Flow (simplified)
+
+Enter words in the img-gen UI, click **Send** to aggregate a prompt, then click **Generate** to render the image. The `/v1/prompt/add` endpoint stores words in memory (per cookie sid) for now and will be replaced with durable storage later.

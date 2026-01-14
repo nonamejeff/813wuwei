@@ -249,6 +249,9 @@ const screenSize = {
 };
 
 const fidelityInput = document.getElementById("fidelity");
+const userWordsInput = document.getElementById("userWords");
+const sendWordsBtn = document.getElementById("sendWordsBtn");
+const promptOut = document.getElementById("promptOut");
 const kInput = document.getElementById("kValue");
 const motionReadout = document.getElementById("motionReadout");
 const regimeReadout = document.getElementById("regimeReadout");
@@ -751,6 +754,9 @@ function generatePrompt() {
   promptOutput.textContent = lastPrompt;
   negativeOutput.textContent = lastNegative;
   promptTimestamp.textContent = new Date().toLocaleTimeString();
+  if (promptOut) {
+    promptOut.value = lastPrompt;
+  }
 }
 
 function copyPrompt() {
@@ -769,9 +775,57 @@ function setImageStatus(message) {
   imageStatus.textContent = message || "—";
 }
 
-async function handleGenerateImage() {
-  const promptText = manualPrompt.value.trim() || lastPrompt;
-  const size = imageSizeSelect ? imageSizeSelect.value : "512x512";
+async function sendWords() {
+  const words = userWordsInput ? userWordsInput.value.trim() : "";
+  const fidelity = fidelityInput ? Number.parseFloat(fidelityInput.value) : undefined;
+
+  if (!words) {
+    setImageStatus("Enter a few words to build a prompt.");
+    return;
+  }
+
+  if (sendWordsBtn) {
+    sendWordsBtn.disabled = true;
+  }
+  setImageStatus("Sending words…");
+
+  try {
+    const response = await fetch(`${WORKER_URL}/v1/prompt/add`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ words, fidelity })
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = data?.error || "Failed to aggregate words.";
+      throw new Error(message);
+    }
+
+    const nextPrompt = data?.prompt || "";
+    if (promptOut) {
+      promptOut.value = nextPrompt;
+    }
+    lastPrompt = nextPrompt;
+    promptBlock.value = `PROMPT:\n${nextPrompt}\n\nNEGATIVE:\n${lastNegative}`;
+    promptOutput.textContent = nextPrompt;
+    promptTimestamp.textContent = new Date().toLocaleTimeString();
+    setImageStatus("Prompt updated.");
+  } catch (error) {
+    setImageStatus(error?.message || "Failed to aggregate words.");
+  } finally {
+    if (sendWordsBtn) {
+      sendWordsBtn.disabled = false;
+    }
+  }
+}
+
+async function generateImage() {
+  const promptText = promptOut?.value.trim() || lastPrompt;
+  const size = imageSizeSelect ? imageSizeSelect.value : "1024x1024";
 
   if (!promptText) {
     setImageStatus("Add or generate a prompt first.");
@@ -889,7 +943,10 @@ targetImageInput.addEventListener("change", (event) => {
 });
 clearTargetImageBtn.addEventListener("click", clearTargetImage);
 if (generateImageBtn) {
-  generateImageBtn.addEventListener("click", handleGenerateImage);
+  generateImageBtn.addEventListener("click", generateImage);
+}
+if (sendWordsBtn) {
+  sendWordsBtn.addEventListener("click", sendWords);
 }
 
 const defaultImage = new Image();

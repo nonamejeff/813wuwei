@@ -8,12 +8,30 @@
 </head>
 <body>
   <canvas id="field"></canvas>
-  <div class="dev-panel">
+  <div class="simple-ui">
+    <label class="control">
+      <span>Words</span>
+      <textarea
+        id="userWords"
+        rows="3"
+        placeholder="Enter a few words (comma separated or free text)…"
+      ></textarea>
+    </label>
+    <button id="sendWordsBtn" type="button">Send</button>
+    <label class="control">
+      <span>Prompt</span>
+      <textarea id="promptOut" rows="4" readonly></textarea>
+    </label>
+    <label class="control">
+      <span>Fidelity</span>
+      <input id="fidelity" type="range" min="0" max="1" step="0.01" value="0.5" />
+    </label>
+    <button id="generateImageBtn" type="button">Generate</button>
+    <div id="imageStatus" class="readout">—</div>
+    <img id="generatedImage" alt="Generated image" />
+  </div>
+  <div class="dev-panel" id="devTools" style="display: none;">
     <div class="controls">
-      <label class="control">
-        <span>Fidelity</span>
-        <input id="fidelity" type="range" min="0" max="1" step="0.01" value="0.5" />
-      </label>
       <div class="control">
         <span>Motion</span>
         <div id="motionReadout" class="readout">—</div>
@@ -70,9 +88,6 @@
           <option value="1024x1792">1024x1792</option>
         </select>
       </label>
-      <button id="generateImageBtn" type="button">Generate Image</button>
-      <div id="imageStatus" class="readout">—</div>
-      <img id="generatedImage" alt="Generated image" />
     </div>
     <div class="inputs">
       <textarea id="inputText" rows="3" placeholder=""></textarea>

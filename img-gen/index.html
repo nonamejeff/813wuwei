@@ -60,6 +60,20 @@
         <button id="clearTargetImage" type="button">Clear Target Image</button>
       </div>
     </div>
+    <div class="panel-section">
+      <h3>Generate Image</h3>
+      <label class="control">
+        <span>Image Size</span>
+        <select id="imageSize">
+          <option value="512x512">512x512</option>
+          <option value="1024x1024">1024x1024</option>
+          <option value="1024x1792">1024x1792</option>
+        </select>
+      </label>
+      <button id="generateImageBtn" type="button">Generate Image</button>
+      <div id="imageStatus" class="readout">—</div>
+      <img id="generatedImage" alt="Generated image" />
+    </div>
     <div class="inputs">
       <textarea id="inputText" rows="3" placeholder=""></textarea>
       <div class="input-actions">

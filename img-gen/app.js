@@ -6,6 +6,7 @@ const DEFAULT_OVERRIDE_PROMPT =
   "abstract, non-figurative, organic field texture, subdued tones, imperfect continuity, wabi-sabi restraint, atmospheric, film grain, (bay:0.84), (salt:0.84), (haze:0.84), (late:0.84), (traffic:0.84), (glow:0.85), (wet:0.84), (pavement:0.84), (slow:0.84), (currents:0.84), (sirens:0.80), (ladder:0.80), (basin:0.80)";
 
 const DEFAULT_TARGET_SIZE = 512;
+const DEFAULT_IMAGE_SIZE = "1024x1024";
 const WORKER_URL = "https://img-gen-backend.nnjeff-prod.workers.dev";
 
 const BOOTSTRAP_TOKENS = [
@@ -825,7 +826,7 @@ async function sendWords() {
 
 async function generateImage() {
   const promptText = promptOut?.value.trim() || lastPrompt;
-  const size = imageSizeSelect ? imageSizeSelect.value : "auto";
+  const size = imageSizeSelect ? imageSizeSelect.value : DEFAULT_IMAGE_SIZE;
 
   if (!promptText) {
     setImageStatus("Add or generate a prompt first.");

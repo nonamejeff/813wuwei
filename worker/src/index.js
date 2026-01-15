@@ -7,6 +7,7 @@ const sharedImageState = {
   prompt: "",
   updatedAt: 0
 };
+let dbInitPromise;
 const STYLE_SPINE =
   "abstract, non-figurative, atmospheric field texture, wabi-sabi restraint, imperfect continuity, subdued palette, soft film grain, natural diffusion, quiet contrast, no subjects, no objects, no readable symbols";
 const NON_LITERAL_RULES =
@@ -226,11 +227,73 @@ function jsonResponse(status, body, corsHeaders, extraHeaders) {
 
 function updateSharedImageState(prompt, imageDataUrl) {
   if (!imageDataUrl) {
+    return null;
+  }
+  const nextState = {
+    imageDataUrl,
+    prompt: prompt || "",
+    updatedAt: Date.now()
+  };
+  sharedImageState.imageDataUrl = nextState.imageDataUrl;
+  sharedImageState.prompt = nextState.prompt;
+  sharedImageState.updatedAt = nextState.updatedAt;
+  return nextState;
+}
+
+function hasStateDatabase(env) {
+  return Boolean(env?.IMAGE_STATE_DB?.prepare);
+}
+
+async function ensureStateTable(env) {
+  if (!hasStateDatabase(env)) {
+    return false;
+  }
+  if (!dbInitPromise) {
+    dbInitPromise = env.IMAGE_STATE_DB.prepare(
+      "CREATE TABLE IF NOT EXISTS image_state (id INTEGER PRIMARY KEY, image_data_url TEXT, prompt TEXT, updated_at INTEGER)"
+    )
+      .run()
+      .then(() => true)
+      .catch(() => false);
+  }
+  return dbInitPromise;
+}
+
+async function loadSharedImageState(env) {
+  if (!(await ensureStateTable(env))) {
+    return sharedImageState;
+  }
+  try {
+    const result = await env.IMAGE_STATE_DB.prepare(
+      "SELECT image_data_url, prompt, updated_at FROM image_state WHERE id = 1"
+    ).first();
+    if (result?.image_data_url) {
+      sharedImageState.imageDataUrl = result.image_data_url;
+      sharedImageState.prompt = result.prompt || "";
+      sharedImageState.updatedAt = result.updated_at || 0;
+    }
+  } catch (error) {
+    return sharedImageState;
+  }
+  return sharedImageState;
+}
+
+async function persistSharedImageState(env, nextState) {
+  if (!nextState) {
     return;
   }
-  sharedImageState.imageDataUrl = imageDataUrl;
-  sharedImageState.prompt = prompt || "";
-  sharedImageState.updatedAt = Date.now();
+  if (!(await ensureStateTable(env))) {
+    return;
+  }
+  try {
+    await env.IMAGE_STATE_DB.prepare(
+      "INSERT INTO image_state (id, image_data_url, prompt, updated_at) VALUES (1, ?1, ?2, ?3) ON CONFLICT(id) DO UPDATE SET image_data_url = excluded.image_data_url, prompt = excluded.prompt, updated_at = excluded.updated_at"
+    )
+      .bind(nextState.imageDataUrl, nextState.prompt, nextState.updatedAt)
+      .run();
+  } catch (error) {
+    return;
+  }
 }
 
 function normalizeTokens(words) {
@@ -378,12 +441,13 @@ export default {
 
     if (request.method === "GET") {
       if (url.pathname === "/v1/state") {
+        const currentState = await loadSharedImageState(env);
         return jsonResponse(
           200,
           {
-            image_data_url: sharedImageState.imageDataUrl,
-            prompt: sharedImageState.prompt,
-            updated_at: sharedImageState.updatedAt
+            image_data_url: currentState.imageDataUrl,
+            prompt: currentState.prompt,
+            updated_at: currentState.updatedAt
           },
           corsHeaders,
           { "Cache-Control": "no-store" }
@@ -498,7 +562,8 @@ export default {
     }
 
     const imageDataUrl = `data:image/png;base64,${b64}`;
-    updateSharedImageState(prompt, imageDataUrl);
+    const nextState = updateSharedImageState(prompt, imageDataUrl);
+    await persistSharedImageState(env, nextState);
 
     return jsonResponse(
       200,

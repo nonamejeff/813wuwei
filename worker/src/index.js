@@ -1,18 +1,18 @@
 const MAX_PROMPT_LENGTH = 4000;
 const ALLOWED_SIZES = new Set(["512x512", "1024x1024", "1024x1536", "1536x1024"]);
 const MAX_WORD_ENTRIES = 50;
-const promptSessions = [];
 const GLOBAL_STATE_KEY = "global_state";
-const PROMPT_SESSIONS_KEY = "prompt_sessions";
 // prompt_sessions aggregates prompt inputs only; using it for shared image state
 // caused desync because it never stored the canonical image payload.
 const DEFAULT_FIDELITY = 0.05;
 const DEFAULT_GLOBAL_STATE = {
+  prompt_sessions: [],
   prompt: "",
-  image_data_url: "",
-  updated_at: 0,
   fidelity: DEFAULT_FIDELITY,
-  size: "1024x1024"
+  size: "1024x1024",
+  image_url: null,
+  image_data_url: null,
+  updated_at: 0
 };
 // NOTE: Do not store global image state in-memory; per-worker isolates reset often
 // and are not shared across regions, so memory state diverges between clients.
@@ -240,13 +240,30 @@ const NO_CACHE_HEADERS = {
   Expires: "0"
 };
 
+function normalizePromptSessions(sessions) {
+  if (!Array.isArray(sessions)) {
+    return [];
+  }
+  return sessions.filter((entry) => typeof entry === "string" && entry.trim().length > 0);
+}
+
+function normalizeImageValue(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
+}
+
 function normalizeGlobalState(state, fallbackUpdatedAt = 0) {
   return {
+    prompt_sessions: normalizePromptSessions(state?.prompt_sessions),
     prompt: typeof state?.prompt === "string" ? state.prompt : "",
-    image_data_url: typeof state?.image_data_url === "string" ? state.image_data_url : "",
-    updated_at: Number.isFinite(state?.updated_at) ? state.updated_at : fallbackUpdatedAt,
     fidelity: Number.isFinite(state?.fidelity) ? state.fidelity : DEFAULT_GLOBAL_STATE.fidelity,
-    size: typeof state?.size === "string" ? state.size : DEFAULT_GLOBAL_STATE.size
+    size: typeof state?.size === "string" ? state.size : DEFAULT_GLOBAL_STATE.size,
+    image_url: normalizeImageValue(state?.image_url),
+    image_data_url: normalizeImageValue(state?.image_data_url),
+    updated_at: Number.isFinite(state?.updated_at) ? state.updated_at : fallbackUpdatedAt
   };
 }
 
@@ -268,37 +285,9 @@ async function writeGlobalState(env, state) {
   if (!env?.IMAGE_STATE_KV?.put || state === undefined || state === null) {
     return;
   }
-  const value = JSON.stringify(state);
-  console.log("KV.put global_state value (before):", value);
+  const normalized = normalizeGlobalState(state, state.updated_at);
+  const value = JSON.stringify(normalized);
   await env.IMAGE_STATE_KV.put(GLOBAL_STATE_KEY, value);
-  console.log("KV.put global_state value (after):", value);
-}
-
-function normalizePromptSessions(sessions) {
-  if (!Array.isArray(sessions)) {
-    return [];
-  }
-  return sessions.filter((entry) => typeof entry === "string" && entry.trim().length > 0);
-}
-
-async function loadPromptSessions(env) {
-  if (!env?.IMAGE_STATE_KV?.get) {
-    return [...promptSessions];
-  }
-  const stored = await env.IMAGE_STATE_KV.get(PROMPT_SESSIONS_KEY, {
-    type: "json"
-  });
-  return normalizePromptSessions(stored);
-}
-
-async function persistPromptSessions(env, sessions) {
-  if (!env?.IMAGE_STATE_KV?.put) {
-    return;
-  }
-  await env.IMAGE_STATE_KV.put(
-    PROMPT_SESSIONS_KEY,
-    JSON.stringify(normalizePromptSessions(sessions))
-  );
 }
 
 function normalizeTokens(words) {
@@ -447,7 +436,7 @@ export default {
 
     if (request.method === "GET") {
       if (url.pathname === "/v1/state") {
-        let storedState;
+        let storedState = null;
         if (env?.IMAGE_STATE_KV?.get) {
           try {
             storedState = await env.IMAGE_STATE_KV.get(GLOBAL_STATE_KEY, { type: "json" });
@@ -490,15 +479,29 @@ export default {
       }
 
       const updatedAt = Date.now();
+      const existingState = await loadGlobalState(env);
       const nextState = normalizeGlobalState(
         {
-          prompt: typeof payload?.prompt === "string" ? payload.prompt.trim() : "",
+          prompt_sessions: Array.isArray(payload?.prompt_sessions)
+            ? payload.prompt_sessions
+            : existingState.prompt_sessions,
+          prompt: typeof payload?.prompt === "string" ? payload.prompt.trim() : existingState.prompt,
           image_data_url:
-            typeof payload?.image_data_url === "string" ? payload.image_data_url : "",
+            payload?.image_data_url === null
+              ? null
+              : typeof payload?.image_data_url === "string"
+                ? payload.image_data_url
+                : existingState.image_data_url,
+          image_url:
+            payload?.image_url === null
+              ? null
+              : typeof payload?.image_url === "string"
+                ? payload.image_url
+                : existingState.image_url,
           fidelity: Number.isFinite(payload?.fidelity)
             ? payload.fidelity
-            : DEFAULT_FIDELITY,
-          size: typeof payload?.size === "string" ? payload.size.trim() : "",
+            : existingState.fidelity,
+          size: typeof payload?.size === "string" ? payload.size.trim() : existingState.size,
           updated_at: updatedAt
         },
         updatedAt
@@ -520,28 +523,23 @@ export default {
         return jsonResponse(400, { error: "Words are required" }, corsHeaders);
       }
 
-      const storedSessions = await loadPromptSessions(env);
+      const existingState = await loadGlobalState(env);
+      const storedSessions = normalizePromptSessions(existingState.prompt_sessions);
       storedSessions.push(words);
       const nextEntries = storedSessions.slice(-MAX_WORD_ENTRIES);
-      await persistPromptSessions(env, nextEntries);
-      promptSessions.length = 0;
-      promptSessions.push(...nextEntries);
 
       const tokens = normalizeTokens(nextEntries.join(" "));
       const prompt = buildPrompt(tokens);
 
       const updatedAt = Date.now();
-      const existingState = await loadGlobalState(env);
-      const requestedSize = typeof payload?.size === "string" ? payload.size.trim() : "";
-      const requestedFidelity = Number.isFinite(payload?.fidelity)
-        ? payload.fidelity
-        : existingState.fidelity;
       const nextState = normalizeGlobalState(
         {
+          prompt_sessions: nextEntries,
           prompt,
-          image_data_url: "",
-          fidelity: requestedFidelity,
-          size: ALLOWED_SIZES.has(requestedSize) ? requestedSize : existingState.size,
+          fidelity: existingState.fidelity,
+          size: existingState.size,
+          image_url: existingState.image_url,
+          image_data_url: existingState.image_data_url,
           updated_at: updatedAt
         },
         updatedAt
@@ -556,9 +554,51 @@ export default {
     }
 
     if (url.pathname === "/v1/prompt/clear") {
-      await persistPromptSessions(env, []);
-      promptSessions.length = 0;
+      const updatedAt = Date.now();
+      const existingState = await loadGlobalState(env);
+      const nextState = normalizeGlobalState(
+        {
+          prompt_sessions: [],
+          prompt: "",
+          fidelity: existingState.fidelity,
+          size: existingState.size,
+          image_url: existingState.image_url,
+          image_data_url: existingState.image_data_url,
+          updated_at: updatedAt
+        },
+        updatedAt
+      );
+      await writeGlobalState(env, nextState);
       return jsonResponse(200, { ok: true }, corsHeaders);
+    }
+
+    if (url.pathname === "/v1/fidelity") {
+      let payload;
+      try {
+        payload = await request.json();
+      } catch (error) {
+        return jsonResponse(400, { error: "Invalid JSON" }, corsHeaders);
+      }
+      const fidelity = Number.isFinite(payload?.fidelity) ? payload.fidelity : null;
+      if (!Number.isFinite(fidelity)) {
+        return jsonResponse(400, { error: "Fidelity is required" }, corsHeaders);
+      }
+      const updatedAt = Date.now();
+      const existingState = await loadGlobalState(env);
+      const nextState = normalizeGlobalState(
+        {
+          prompt_sessions: existingState.prompt_sessions,
+          prompt: existingState.prompt,
+          fidelity,
+          size: existingState.size,
+          image_url: existingState.image_url,
+          image_data_url: existingState.image_data_url,
+          updated_at: updatedAt
+        },
+        updatedAt
+      );
+      await writeGlobalState(env, nextState);
+      return jsonResponse(200, nextState, corsHeaders, NO_CACHE_HEADERS);
     }
 
     if (url.pathname !== "/v1/img-gen") {
@@ -572,10 +612,11 @@ export default {
       return jsonResponse(400, { error: "Invalid JSON" }, corsHeaders);
     }
 
-    const prompt = typeof payload?.prompt === "string" ? payload.prompt.trim() : "";
-    const size = typeof payload?.size === "string" ? payload.size.trim() : "";
-    const fidelity = Number.isFinite(payload?.fidelity)
-      ? payload.fidelity
+    const existingState = await loadGlobalState(env);
+    const prompt = typeof existingState?.prompt === "string" ? existingState.prompt.trim() : "";
+    const size = typeof payload?.size === "string" ? payload.size.trim() : existingState.size;
+    const fidelity = Number.isFinite(existingState?.fidelity)
+      ? existingState.fidelity
       : DEFAULT_FIDELITY;
 
     if (!prompt) {
@@ -630,15 +671,18 @@ export default {
     }
 
     const imageDataUrl = `data:image/png;base64,${b64}`;
+    const updatedAt = Date.now();
     const nextState = normalizeGlobalState(
       {
+        prompt_sessions: existingState.prompt_sessions,
         prompt,
-        image_data_url: imageDataUrl,
         fidelity,
         size,
-        updated_at: Date.now()
+        image_url: null,
+        image_data_url: imageDataUrl,
+        updated_at: updatedAt
       },
-      Date.now()
+      updatedAt
     );
     await writeGlobalState(env, nextState);
 

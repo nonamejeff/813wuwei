@@ -4,10 +4,11 @@ const MAX_WORD_ENTRIES = 50;
 const GLOBAL_STATE_KEY = "global_state";
 // prompt_sessions aggregates prompt inputs only; using it for shared image state
 // caused desync because it never stored the canonical image payload.
-const DEFAULT_FIDELITY = 0.05;
+const DEFAULT_FIDELITY = 0;
 const DEFAULT_GLOBAL_STATE = {
   prompt_sessions: [],
   prompt: "",
+  send_count: 0,
   fidelity: DEFAULT_FIDELITY,
   size: "1024x1024",
   image_url: null,
@@ -247,6 +248,20 @@ function normalizePromptSessions(sessions) {
   return sessions.filter((entry) => typeof entry === "string" && entry.trim().length > 0);
 }
 
+function normalizeSendCount(value) {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_GLOBAL_STATE.send_count;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
+function normalizeFidelity(value) {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_GLOBAL_STATE.fidelity;
+  }
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 function normalizeImageValue(value) {
   if (typeof value !== "string") {
     return null;
@@ -259,7 +274,8 @@ function normalizeGlobalState(state, fallbackUpdatedAt = 0) {
   return {
     prompt_sessions: normalizePromptSessions(state?.prompt_sessions),
     prompt: typeof state?.prompt === "string" ? state.prompt : "",
-    fidelity: Number.isFinite(state?.fidelity) ? state.fidelity : DEFAULT_GLOBAL_STATE.fidelity,
+    send_count: normalizeSendCount(state?.send_count),
+    fidelity: normalizeFidelity(state?.fidelity),
     size: typeof state?.size === "string" ? state.size : DEFAULT_GLOBAL_STATE.size,
     image_url: normalizeImageValue(state?.image_url),
     image_data_url: normalizeImageValue(state?.image_data_url),
@@ -295,6 +311,12 @@ function normalizeTokens(words) {
     .split(/[\s,]+/)
     .map((token) => token.trim().toLowerCase())
     .filter((token) => token && !STOPWORDS.has(token));
+}
+
+function computeFidelity(sendCount) {
+  const k = 12;
+  const value = 100 * (1 - Math.exp(-sendCount / k));
+  return Math.max(0, Math.min(100, Math.round(value)));
 }
 
 function addBucket(bucket, phrase, weight) {
@@ -498,9 +520,8 @@ export default {
               : typeof payload?.image_url === "string"
                 ? payload.image_url
                 : existingState.image_url,
-          fidelity: Number.isFinite(payload?.fidelity)
-            ? payload.fidelity
-            : existingState.fidelity,
+          send_count: existingState.send_count,
+          fidelity: existingState.fidelity,
           size: typeof payload?.size === "string" ? payload.size.trim() : existingState.size,
           updated_at: updatedAt
         },
@@ -531,12 +552,15 @@ export default {
       const tokens = normalizeTokens(nextEntries.join(" "));
       const prompt = buildPrompt(tokens);
 
+      const nextSendCount = normalizeSendCount(existingState.send_count) + 1;
+      const nextFidelity = computeFidelity(nextSendCount);
       const updatedAt = Date.now();
       const nextState = normalizeGlobalState(
         {
           prompt_sessions: nextEntries,
           prompt,
-          fidelity: existingState.fidelity,
+          send_count: nextSendCount,
+          fidelity: nextFidelity,
           size: existingState.size,
           image_url: existingState.image_url,
           image_data_url: existingState.image_data_url,
@@ -544,11 +568,12 @@ export default {
         },
         updatedAt
       );
+      console.log("send_count", nextState.send_count, "fidelity", nextState.fidelity);
       await writeGlobalState(env, nextState);
 
       return jsonResponse(
         200,
-        { prompt, tokens: [...new Set(tokens)], count: nextEntries.length },
+        nextState,
         corsHeaders
       );
     }
@@ -560,6 +585,7 @@ export default {
         {
           prompt_sessions: [],
           prompt: "",
+          send_count: existingState.send_count,
           fidelity: existingState.fidelity,
           size: existingState.size,
           image_url: existingState.image_url,
@@ -573,23 +599,14 @@ export default {
     }
 
     if (url.pathname === "/v1/fidelity") {
-      let payload;
-      try {
-        payload = await request.json();
-      } catch (error) {
-        return jsonResponse(400, { error: "Invalid JSON" }, corsHeaders);
-      }
-      const fidelity = Number.isFinite(payload?.fidelity) ? payload.fidelity : null;
-      if (!Number.isFinite(fidelity)) {
-        return jsonResponse(400, { error: "Fidelity is required" }, corsHeaders);
-      }
       const updatedAt = Date.now();
       const existingState = await loadGlobalState(env);
       const nextState = normalizeGlobalState(
         {
           prompt_sessions: existingState.prompt_sessions,
           prompt: existingState.prompt,
-          fidelity,
+          send_count: existingState.send_count,
+          fidelity: existingState.fidelity,
           size: existingState.size,
           image_url: existingState.image_url,
           image_data_url: existingState.image_data_url,
@@ -676,6 +693,7 @@ export default {
       {
         prompt_sessions: existingState.prompt_sessions,
         prompt,
+        send_count: existingState.send_count,
         fidelity,
         size,
         image_url: null,

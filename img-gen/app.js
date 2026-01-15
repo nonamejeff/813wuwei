@@ -372,11 +372,8 @@ let lastNegative = NEGATIVE_PROMPT;
 let lastSeenUpdatedAt = -1;
 let lastSharedImageUrl = null;
 let hasBackendState = false;
-let sendTimes = [];
-let emaRate = 0;
-let fidelity = 0.05;
-let targetFidelity = 0.05;
-let sensitivity01 = 0.5;
+let fidelity = 0;
+let targetFidelity = 0;
 let isEditingPrompt = false;
 let isAdjustingFidelity = false;
 let isProgrammaticFidelityUpdate = false;
@@ -385,27 +382,14 @@ let hasAppliedUserFidelity = false;
 let lastSyncErrorMessage = "";
 let lastSyncErrorAt = 0;
 
-const RATE_WINDOW_MS = 60000;
-const RATE_MAX = 30;
-const FIDELITY_MIN = 0.02;
-const FIDELITY_MAX = 0.98;
-const RATE_ALPHA = 0.05;
-const FIDELITY_ALPHA = 0.03;
-const SEND_RATE_TICK_MS = 100;
-const FIDELITY_STORAGE_KEY = "imgGenFidelity";
+const FIDELITY_MIN = 0;
+const FIDELITY_MAX = 1;
 const SYNC_ERROR_COOLDOWN_MS = 5000;
 
 const devEnabled = new URLSearchParams(window.location.search).get("dev") === "1";
 
 if (devTools) {
   devTools.style.display = devEnabled ? "flex" : "none";
-}
-
-if (sensitivityInput) {
-  sensitivity01 = clamp(Number.parseFloat(sensitivityInput.value), 0, 1);
-  sensitivityInput.addEventListener("input", (event) => {
-    sensitivity01 = clamp(Number.parseFloat(event.target.value), 0, 1);
-  });
 }
 
 function updatePromptEditingState() {
@@ -424,18 +408,6 @@ if (userWordsInput) {
 }
 
 if (fidelitySlider) {
-  const handleFidelityInput = (event) => {
-    if (isProgrammaticFidelityUpdate) {
-      return;
-    }
-    const rawValue = Number.parseFloat(event.target.value);
-    if (!Number.isFinite(rawValue)) {
-      return;
-    }
-    setFidelityUI(rawValue, "slider");
-    localStorage.setItem(FIDELITY_STORAGE_KEY, String(rawValue));
-    updateBackendFidelity(rawValue);
-  };
   fidelitySlider.addEventListener("pointerdown", () => {
     isAdjustingFidelity = true;
   });
@@ -448,8 +420,6 @@ if (fidelitySlider) {
   fidelitySlider.addEventListener("blur", () => {
     isAdjustingFidelity = false;
   });
-  fidelitySlider.addEventListener("input", handleFidelityInput);
-  fidelitySlider.addEventListener("change", handleFidelityInput);
 }
 
 function resize() {
@@ -645,10 +615,6 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function lerp(start, end, amount) {
-  return start + (end - start) * amount;
-}
-
 function motionCurve(value) {
   return Math.log2(1 + 7 * value) / Math.log2(8);
 }
@@ -722,58 +688,6 @@ function setFidelityUI(value, source) {
     hasAppliedBackendFidelity = true;
   } else if (source === "slider" || source === "local") {
     hasAppliedUserFidelity = true;
-  }
-}
-
-async function updateBackendFidelity(rawValue) {
-  try {
-    const response = await fetch(`${WORKER_URL}/v1/fidelity`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ fidelity: rawValue })
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(data?.error || "Failed to sync fidelity.");
-    }
-  } catch (error) {
-    setSyncError(error?.message || "Failed to sync fidelity.");
-  }
-}
-
-function recordSendEvent() {
-  sendTimes.push(Date.now());
-}
-
-function updateRateAndFidelity() {
-  const now = Date.now();
-  while (sendTimes.length && now - sendTimes[0] > RATE_WINDOW_MS) {
-    sendTimes.shift();
-  }
-
-  const instantRate = sendTimes.length * (60000 / RATE_WINDOW_MS);
-  emaRate = lerp(emaRate, instantRate, RATE_ALPHA);
-
-  if (!hasAppliedBackendFidelity && !hasAppliedUserFidelity) {
-    const normalizedRate = clamp(emaRate / RATE_MAX, 0, 1);
-    const sensitivity = 0.25 + sensitivity01 * 2.75;
-    const curved = Math.pow(normalizedRate, 1 / sensitivity);
-    targetFidelity = FIDELITY_MIN + (FIDELITY_MAX - FIDELITY_MIN) * curved;
-    fidelity = lerp(fidelity, targetFidelity, FIDELITY_ALPHA);
-
-    setFidelitySliderValue(denormalizeFidelityValue(fidelity));
-  }
-
-  if (devEnabled) {
-    if (rateReadout) {
-      rateReadout.textContent = instantRate.toFixed(2);
-    }
-    if (emaRateReadout) {
-      emaRateReadout.textContent = emaRate.toFixed(2);
-    }
-    updateFidelityReadouts();
   }
 }
 
@@ -1297,12 +1211,7 @@ async function hydrateFidelityFromBackend() {
       }
     }
   } catch (error) {
-    // Ignore initial load failures; fallback to local storage.
-  }
-
-  const stored = Number.parseFloat(localStorage.getItem(FIDELITY_STORAGE_KEY));
-  if (!hasAppliedBackendFidelity && Number.isFinite(stored)) {
-    setFidelityUI(stored, "local");
+    // Ignore initial load failures.
   }
 }
 
@@ -1357,13 +1266,8 @@ async function sendWords() {
       throw new Error(message);
     }
 
-    recordSendEvent();
-    const nextPrompt = data?.prompt || "";
-    if (nextPrompt) {
-      lastPrompt = nextPrompt;
-      lastNegative = NEGATIVE_PROMPT;
-      updatePromptDisplay();
-    }
+    const state = normalizeSharedState(data);
+    applyStateToUI(state);
     setImageStatus("Prompt updated.");
   } catch (error) {
     setImageStatus(error?.message || "Failed to aggregate words.");
@@ -1480,7 +1384,6 @@ submitText.addEventListener("click", () => {
     return;
   }
   addMessage(text);
-  recordSendEvent();
   inputText.value = "";
   buildClusters();
   bumpSeed();
@@ -1522,8 +1425,6 @@ if (!hasBackendState) {
 }
 
 scheduleInitialFidelityLoad();
-updateRateAndFidelity();
-setInterval(updateRateAndFidelity, SEND_RATE_TICK_MS);
 
 syncSharedState();
 setInterval(syncSharedState, STATE_POLL_MS);

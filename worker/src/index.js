@@ -291,25 +291,18 @@ function clamp(value, min, max) {
 }
 
 async function loadState(env) {
-  if (!env?.IMAGE_STATE_KV?.get) {
-    return { ...DEFAULT_GLOBAL_STATE };
-  }
-  try {
-    const s = await env.IMAGE_STATE_KV.get(GLOBAL_STATE_KEY, { type: "json" });
-    return {
-      prompt_sessions: [],
-      send_timestamps: [],
-      prompt: "",
-      fidelity: 0,
-      size: "1024x1024",
-      image_url: null,
-      image_data_url: null,
-      updated_at: 0,
-      ...(s || {})
-    };
-  } catch (error) {
-    return { ...DEFAULT_GLOBAL_STATE };
-  }
+  const stored = await env.IMAGE_STATE_KV.get("global_state", { type: "json" });
+  const defaults = {
+    prompt_sessions: [],
+    send_timestamps: [],
+    prompt: "",
+    fidelity: 0,
+    size: "1024x1024",
+    image_url: null,
+    image_data_url: null,
+    updated_at: 0
+  };
+  return Object.assign({}, defaults, stored || {});
 }
 
 async function writeGlobalState(env, state) {
@@ -539,16 +532,26 @@ export default {
         return jsonResponse(400, { error: "Words are required" }, corsHeaders);
       }
 
+      // Do not overwrite global_state on new clients; always load+mutate.
+      const state = await loadState(env);
+      console.log(
+        "loaded presses",
+        Array.isArray(state.send_timestamps) ? state.send_timestamps.length : 0,
+        "loaded fidelity",
+        state.fidelity
+      );
       const now = Date.now();
-      const state = normalizeGlobalState(await loadState(env), now);
+      state.send_timestamps = normalizeSendTimestamps(state.send_timestamps);
       state.send_timestamps.push(now);
       state.send_timestamps = state.send_timestamps.filter((timestamp) => timestamp >= now - 30000);
+      const prunedLen = state.send_timestamps.length;
       const TARGET = 100;
       state.fidelity = clamp(
-        Math.round((state.send_timestamps.length / TARGET) * 100),
+        Math.ceil((prunedLen / TARGET) * 100),
         0,
         100
       );
+      console.log("after send presses", prunedLen, "new fidelity", state.fidelity);
 
       const storedSessions = normalizePromptSessions(state.prompt_sessions);
       storedSessions.push(words);
@@ -558,15 +561,11 @@ export default {
       state.prompt = buildPrompt(tokens);
       state.updated_at = now;
 
-      const nextState = normalizeGlobalState(
-        state,
-        now
-      );
-      await writeGlobalState(env, nextState);
+      await writeGlobalState(env, state);
 
       return jsonResponse(
         200,
-        nextState,
+        state,
         corsHeaders
       );
     }

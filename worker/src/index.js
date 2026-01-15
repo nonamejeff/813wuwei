@@ -251,11 +251,14 @@ async function loadGlobalState(env) {
   if (!env?.IMAGE_STATE_KV?.get) {
     return { ...DEFAULT_GLOBAL_STATE };
   }
-  const stored = await env.IMAGE_STATE_KV.get(GLOBAL_STATE_KEY, {
-    type: "json",
-    cacheTtl: 0
-  });
-  return normalizeGlobalState(stored, DEFAULT_GLOBAL_STATE.updated_at);
+  try {
+    const stored = await env.IMAGE_STATE_KV.get(GLOBAL_STATE_KEY, {
+      type: "json"
+    });
+    return normalizeGlobalState(stored, DEFAULT_GLOBAL_STATE.updated_at);
+  } catch (error) {
+    return { ...DEFAULT_GLOBAL_STATE };
+  }
 }
 
 async function persistGlobalState(env, nextState) {
@@ -277,8 +280,7 @@ async function loadPromptSessions(env) {
     return [...promptSessions];
   }
   const stored = await env.IMAGE_STATE_KV.get(PROMPT_SESSIONS_KEY, {
-    type: "json",
-    cacheTtl: 0
+    type: "json"
   });
   return normalizePromptSessions(stored);
 }

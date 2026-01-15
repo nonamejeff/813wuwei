@@ -3,6 +3,7 @@ const ALLOWED_SIZES = new Set(["512x512", "1024x1024", "1024x1536", "1536x1024"]
 const MAX_WORD_ENTRIES = 50;
 const promptSessions = [];
 const GLOBAL_STATE_KEY = "global_state";
+const PROMPT_SESSIONS_KEY = "prompt_sessions";
 const DEFAULT_GLOBAL_STATE = {
   prompt: "",
   image_data_url: "",
@@ -264,6 +265,34 @@ async function persistGlobalState(env, nextState) {
   await env.IMAGE_STATE_KV.put(GLOBAL_STATE_KEY, JSON.stringify(nextState));
 }
 
+function normalizePromptSessions(sessions) {
+  if (!Array.isArray(sessions)) {
+    return [];
+  }
+  return sessions.filter((entry) => typeof entry === "string" && entry.trim().length > 0);
+}
+
+async function loadPromptSessions(env) {
+  if (!env?.IMAGE_STATE_KV?.get) {
+    return [...promptSessions];
+  }
+  const stored = await env.IMAGE_STATE_KV.get(PROMPT_SESSIONS_KEY, {
+    type: "json",
+    cacheTtl: 0
+  });
+  return normalizePromptSessions(stored);
+}
+
+async function persistPromptSessions(env, sessions) {
+  if (!env?.IMAGE_STATE_KV?.put) {
+    return;
+  }
+  await env.IMAGE_STATE_KV.put(
+    PROMPT_SESSIONS_KEY,
+    JSON.stringify(normalizePromptSessions(sessions))
+  );
+}
+
 function normalizeTokens(words) {
   return words
     .split(/[\s,]+/)
@@ -468,8 +497,10 @@ export default {
         return jsonResponse(400, { error: "Words are required" }, corsHeaders);
       }
 
-      promptSessions.push(words);
-      const nextEntries = promptSessions.slice(-MAX_WORD_ENTRIES);
+      const storedSessions = await loadPromptSessions(env);
+      storedSessions.push(words);
+      const nextEntries = storedSessions.slice(-MAX_WORD_ENTRIES);
+      await persistPromptSessions(env, nextEntries);
       promptSessions.length = 0;
       promptSessions.push(...nextEntries);
 
@@ -483,6 +514,7 @@ export default {
     }
 
     if (url.pathname === "/v1/prompt/clear") {
+      await persistPromptSessions(env, []);
       promptSessions.length = 0;
       return jsonResponse(200, { ok: true }, corsHeaders);
     }

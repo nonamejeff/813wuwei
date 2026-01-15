@@ -1,7 +1,12 @@
 const MAX_PROMPT_LENGTH = 4000;
 const ALLOWED_SIZES = new Set(["512x512", "1024x1024", "1024x1536", "1536x1024"]);
 const MAX_WORD_ENTRIES = 50;
-const promptSessions = new Map();
+const promptSessions = [];
+const sharedImageState = {
+  imageDataUrl: null,
+  prompt: "",
+  updatedAt: 0
+};
 const STYLE_SPINE =
   "abstract, non-figurative, atmospheric field texture, wabi-sabi restraint, imperfect continuity, subdued palette, soft film grain, natural diffusion, quiet contrast, no subjects, no objects, no readable symbols";
 const NON_LITERAL_RULES =
@@ -203,7 +208,7 @@ function buildCorsHeaders(origin, allowedOrigins) {
   }
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Credentials": "true",
     Vary: "Origin"
@@ -219,28 +224,13 @@ function jsonResponse(status, body, corsHeaders, extraHeaders) {
   return new Response(JSON.stringify(body), { status, headers });
 }
 
-function parseCookies(cookieHeader) {
-  if (!cookieHeader) {
-    return {};
+function updateSharedImageState(prompt, imageDataUrl) {
+  if (!imageDataUrl) {
+    return;
   }
-  return cookieHeader.split(";").reduce((acc, part) => {
-    const [key, ...rest] = part.trim().split("=");
-    if (!key) {
-      return acc;
-    }
-    acc[key] = rest.join("=");
-    return acc;
-  }, {});
-}
-
-function getSessionId(request) {
-  const cookies = parseCookies(request.headers.get("Cookie"));
-  if (cookies.sid) {
-    return { sid: cookies.sid, setCookie: null };
-  }
-  const sid = crypto.randomUUID();
-  const setCookie = `sid=${sid}; Path=/; Secure; SameSite=None`;
-  return { sid, setCookie };
+  sharedImageState.imageDataUrl = imageDataUrl;
+  sharedImageState.prompt = prompt || "";
+  sharedImageState.updatedAt = Date.now();
 }
 
 function normalizeTokens(words) {
@@ -386,6 +376,22 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders || {} });
     }
 
+    if (request.method === "GET") {
+      if (url.pathname === "/v1/state") {
+        return jsonResponse(
+          200,
+          {
+            image_data_url: sharedImageState.imageDataUrl,
+            prompt: sharedImageState.prompt,
+            updated_at: sharedImageState.updatedAt
+          },
+          corsHeaders,
+          { "Cache-Control": "no-store" }
+        );
+      }
+      return new Response("not found", { status: 404 });
+    }
+
     if (request.method !== "POST") {
       return new Response("not found", { status: 404 });
     }
@@ -407,28 +413,23 @@ export default {
         return jsonResponse(400, { error: "Words are required" }, corsHeaders);
       }
 
-      const { sid, setCookie } = getSessionId(request);
-      const entries = promptSessions.get(sid) || [];
-      entries.push(words);
-      const nextEntries = entries.slice(-MAX_WORD_ENTRIES);
-      promptSessions.set(sid, nextEntries);
+      promptSessions.push(words);
+      const nextEntries = promptSessions.slice(-MAX_WORD_ENTRIES);
+      promptSessions.length = 0;
+      promptSessions.push(...nextEntries);
 
       const tokens = normalizeTokens(nextEntries.join(" "));
       const prompt = buildPrompt(tokens);
-      const headers = setCookie ? { "Set-Cookie": setCookie } : null;
       return jsonResponse(
         200,
         { prompt, tokens: [...new Set(tokens)], count: nextEntries.length },
-        corsHeaders,
-        headers
+        corsHeaders
       );
     }
 
     if (url.pathname === "/v1/prompt/clear") {
-      const { sid, setCookie } = getSessionId(request);
-      promptSessions.delete(sid);
-      const headers = setCookie ? { "Set-Cookie": setCookie } : null;
-      return jsonResponse(200, { ok: true }, corsHeaders, headers);
+      promptSessions.length = 0;
+      return jsonResponse(200, { ok: true }, corsHeaders);
     }
 
     if (url.pathname !== "/v1/img-gen") {
@@ -496,9 +497,12 @@ export default {
       return jsonResponse(502, { error: "OpenAI response missing image" }, corsHeaders);
     }
 
+    const imageDataUrl = `data:image/png;base64,${b64}`;
+    updateSharedImageState(prompt, imageDataUrl);
+
     return jsonResponse(
       200,
-      { image_data_url: `data:image/png;base64,${b64}` },
+      { image_data_url: imageDataUrl },
       corsHeaders
     );
   }

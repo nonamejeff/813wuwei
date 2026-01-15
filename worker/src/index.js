@@ -8,7 +8,7 @@ const DEFAULT_FIDELITY = 0;
 const DEFAULT_GLOBAL_STATE = {
   prompt_sessions: [],
   prompt: "",
-  send_count: 0,
+  send_timestamps: [],
   fidelity: DEFAULT_FIDELITY,
   size: "1024x1024",
   image_url: null,
@@ -248,11 +248,14 @@ function normalizePromptSessions(sessions) {
   return sessions.filter((entry) => typeof entry === "string" && entry.trim().length > 0);
 }
 
-function normalizeSendCount(value) {
-  if (!Number.isFinite(value)) {
-    return DEFAULT_GLOBAL_STATE.send_count;
+function normalizeSendTimestamps(value) {
+  if (!Array.isArray(value)) {
+    return [];
   }
-  return Math.max(0, Math.floor(value));
+  return value
+    .filter((entry) => Number.isFinite(entry))
+    .map((entry) => Math.floor(entry))
+    .filter((entry) => entry > 0);
 }
 
 function normalizeFidelity(value) {
@@ -274,7 +277,7 @@ function normalizeGlobalState(state, fallbackUpdatedAt = 0) {
   return {
     prompt_sessions: normalizePromptSessions(state?.prompt_sessions),
     prompt: typeof state?.prompt === "string" ? state.prompt : "",
-    send_count: normalizeSendCount(state?.send_count),
+    send_timestamps: normalizeSendTimestamps(state?.send_timestamps),
     fidelity: normalizeFidelity(state?.fidelity),
     size: typeof state?.size === "string" ? state.size : DEFAULT_GLOBAL_STATE.size,
     image_url: normalizeImageValue(state?.image_url),
@@ -311,12 +314,6 @@ function normalizeTokens(words) {
     .split(/[\s,]+/)
     .map((token) => token.trim().toLowerCase())
     .filter((token) => token && !STOPWORDS.has(token));
-}
-
-function computeFidelity(sendCount) {
-  const k = 12;
-  const value = 100 * (1 - Math.exp(-sendCount / k));
-  return Math.max(0, Math.min(100, Math.round(value)));
 }
 
 function addBucket(bucket, phrase, weight) {
@@ -520,7 +517,7 @@ export default {
               : typeof payload?.image_url === "string"
                 ? payload.image_url
                 : existingState.image_url,
-          send_count: existingState.send_count,
+          send_timestamps: existingState.send_timestamps,
           fidelity: existingState.fidelity,
           size: typeof payload?.size === "string" ? payload.size.trim() : existingState.size,
           updated_at: updatedAt
@@ -552,14 +549,20 @@ export default {
       const tokens = normalizeTokens(nextEntries.join(" "));
       const prompt = buildPrompt(tokens);
 
-      const nextSendCount = normalizeSendCount(existingState.send_count) + 1;
-      const nextFidelity = computeFidelity(nextSendCount);
       const updatedAt = Date.now();
+      const cutoff = updatedAt - 30000;
+      const nextSendTimestamps = normalizeSendTimestamps(existingState.send_timestamps);
+      nextSendTimestamps.push(updatedAt);
+      const recentTimestamps = nextSendTimestamps.filter((timestamp) => timestamp >= cutoff);
+      const presses = recentTimestamps.length;
+      const TARGET = 100;
+      const fidelity = Math.round((presses / TARGET) * 100);
+      const nextFidelity = Math.max(0, Math.min(100, fidelity));
       const nextState = normalizeGlobalState(
         {
           prompt_sessions: nextEntries,
           prompt,
-          send_count: nextSendCount,
+          send_timestamps: recentTimestamps,
           fidelity: nextFidelity,
           size: existingState.size,
           image_url: existingState.image_url,
@@ -568,7 +571,7 @@ export default {
         },
         updatedAt
       );
-      console.log("send_count", nextState.send_count, "fidelity", nextState.fidelity);
+      console.log("presses", presses, "fidelity", nextState.fidelity);
       await writeGlobalState(env, nextState);
 
       return jsonResponse(
@@ -585,7 +588,7 @@ export default {
         {
           prompt_sessions: [],
           prompt: "",
-          send_count: existingState.send_count,
+          send_timestamps: existingState.send_timestamps,
           fidelity: existingState.fidelity,
           size: existingState.size,
           image_url: existingState.image_url,
@@ -605,7 +608,7 @@ export default {
         {
           prompt_sessions: existingState.prompt_sessions,
           prompt: existingState.prompt,
-          send_count: existingState.send_count,
+          send_timestamps: existingState.send_timestamps,
           fidelity: existingState.fidelity,
           size: existingState.size,
           image_url: existingState.image_url,
@@ -693,7 +696,7 @@ export default {
       {
         prompt_sessions: existingState.prompt_sessions,
         prompt,
-        send_count: existingState.send_count,
+        send_timestamps: existingState.send_timestamps,
         fidelity,
         size,
         image_url: null,

@@ -375,7 +375,6 @@ let hasBackendState = false;
 let fidelity = 0;
 let targetFidelity = 0;
 let isEditingPrompt = false;
-let isAdjustingFidelity = false;
 let isProgrammaticFidelityUpdate = false;
 let hasAppliedBackendFidelity = false;
 let hasAppliedUserFidelity = false;
@@ -384,6 +383,7 @@ let lastSyncErrorAt = 0;
 
 const FIDELITY_MIN = 0;
 const FIDELITY_MAX = 1;
+const FIDELITY_SCALE = 100;
 const SYNC_ERROR_COOLDOWN_MS = 5000;
 
 const devEnabled = new URLSearchParams(window.location.search).get("dev") === "1";
@@ -408,18 +408,9 @@ if (userWordsInput) {
 }
 
 if (fidelitySlider) {
-  fidelitySlider.addEventListener("pointerdown", () => {
-    isAdjustingFidelity = true;
-  });
-  fidelitySlider.addEventListener("pointerup", () => {
-    isAdjustingFidelity = false;
-  });
-  fidelitySlider.addEventListener("pointercancel", () => {
-    isAdjustingFidelity = false;
-  });
-  fidelitySlider.addEventListener("blur", () => {
-    isAdjustingFidelity = false;
-  });
+  fidelitySlider.min = "0";
+  fidelitySlider.max = String(FIDELITY_SCALE);
+  fidelitySlider.step = "1";
 }
 
 function resize() {
@@ -619,24 +610,16 @@ function motionCurve(value) {
   return Math.log2(1 + 7 * value) / Math.log2(8);
 }
 
-function getFidelityScale() {
-  if (!fidelitySlider) {
-    return 1;
-  }
-  const maxValue = Number.parseFloat(fidelitySlider.max);
-  return Number.isFinite(maxValue) && maxValue > 1 ? 100 : 1;
-}
-
 function normalizeFidelityValue(value) {
   const numeric = Number.parseFloat(value);
   if (!Number.isFinite(numeric)) {
     return null;
   }
-  return numeric / getFidelityScale();
+  return numeric / FIDELITY_SCALE;
 }
 
 function denormalizeFidelityValue(value) {
-  return value * getFidelityScale();
+  return value * FIDELITY_SCALE;
 }
 
 function updateFidelityReadouts() {
@@ -661,7 +644,7 @@ function dispatchFidelityEvents() {
 }
 
 function setFidelitySliderValue(value) {
-  if (!fidelitySlider || isAdjustingFidelity) {
+  if (!fidelitySlider) {
     return;
   }
   const nextValue = String(value);
@@ -1164,7 +1147,7 @@ function applyStateToUI(state) {
     lastNegative = NEGATIVE_PROMPT;
     updatePromptDisplay({ updatePromptOut: true });
   }
-  if (!isAdjustingFidelity && Number.isFinite(state?.fidelity)) {
+  if (Number.isFinite(state?.fidelity)) {
     setFidelityUI(state.fidelity, "backend");
   }
   if (state?.size && imageSizeSelect && document.activeElement !== imageSizeSelect) {

@@ -230,6 +230,12 @@ function jsonResponse(status, body, corsHeaders, extraHeaders) {
   return new Response(JSON.stringify(body), { status, headers });
 }
 
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  Pragma: "no-cache",
+  Expires: "0"
+};
+
 function normalizeGlobalState(state, fallbackUpdatedAt = 0) {
   return {
     prompt: typeof state?.prompt === "string" ? state.prompt : "",
@@ -244,7 +250,10 @@ async function loadGlobalState(env) {
   if (!env?.IMAGE_STATE_KV?.get) {
     return { ...DEFAULT_GLOBAL_STATE };
   }
-  const stored = await env.IMAGE_STATE_KV.get(GLOBAL_STATE_KEY, { type: "json" });
+  const stored = await env.IMAGE_STATE_KV.get(GLOBAL_STATE_KEY, {
+    type: "json",
+    cacheTtl: 0
+  });
   return normalizeGlobalState(stored, DEFAULT_GLOBAL_STATE.updated_at);
 }
 
@@ -406,7 +415,7 @@ export default {
           200,
           currentState,
           corsHeaders,
-          { "Cache-Control": "no-store" }
+          NO_CACHE_HEADERS
         );
       }
       return new Response("not found", { status: 404 });
@@ -443,7 +452,7 @@ export default {
         updatedAt
       );
       await persistGlobalState(env, nextState);
-      return jsonResponse(200, nextState, corsHeaders);
+      return jsonResponse(200, nextState, corsHeaders, NO_CACHE_HEADERS);
     }
 
     if (url.pathname === "/v1/prompt/add") {
@@ -562,7 +571,8 @@ export default {
     return jsonResponse(
       200,
       nextState,
-      corsHeaders
+      corsHeaders,
+      NO_CACHE_HEADERS
     );
   }
 };

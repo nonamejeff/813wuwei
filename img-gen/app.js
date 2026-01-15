@@ -369,9 +369,9 @@ let targetTexture = null;
 let clusters = [];
 let lastPrompt = "";
 let lastNegative = NEGATIVE_PROMPT;
-let lastSeenUpdatedAt = 0;
+let lastSeenUpdatedAt = -1;
 let lastSharedImageUrl = null;
-let hasLoadedGlobalState = false;
+let hasBackendState = false;
 let sendTimes = [];
 let emaRate = 0;
 let fidelity = 0.05;
@@ -818,7 +818,7 @@ function buildPromptFromWords(words) {
   return buildMoodPrompt(weightedTokens);
 }
 
-function updatePromptDisplay() {
+function updatePromptDisplay({ updatePromptOut = true } = {}) {
   if (promptBlock) {
     promptBlock.value = `PROMPT:\n${lastPrompt}\n\nNEGATIVE:\n${lastNegative}`;
   }
@@ -831,7 +831,7 @@ function updatePromptDisplay() {
   if (promptTimestamp) {
     promptTimestamp.textContent = new Date().toLocaleTimeString();
   }
-  if (promptOut) {
+  if (promptOut && updatePromptOut) {
     promptOut.value = lastPrompt;
   }
 }
@@ -1131,28 +1131,32 @@ function normalizeSharedState(data) {
   };
 }
 
-function applyGlobalState(state, { updatePrompt = true, updateFidelity = true, updateSize = true } = {}) {
+function applyStateToUI(state) {
   const updatedAt = Number.isFinite(state?.updated_at) ? state.updated_at : 0;
-  if (hasLoadedGlobalState && updatedAt <= lastSeenUpdatedAt) {
-    return;
+  if (updatedAt <= lastSeenUpdatedAt) {
+    return false;
   }
-  hasLoadedGlobalState = true;
   lastSeenUpdatedAt = updatedAt;
+  if (updatedAt >= 0) {
+    hasBackendState = true;
+  }
 
   if (typeof state?.image_data_url === "string" && state.image_data_url) {
     applySharedImage(state.image_data_url);
   }
-  if (updatePrompt && typeof state?.prompt === "string") {
+  if (typeof state?.prompt === "string") {
     lastPrompt = state.prompt.trim();
     lastNegative = NEGATIVE_PROMPT;
-    updatePromptDisplay();
+    const isPromptFocused = document.activeElement === promptOut;
+    updatePromptDisplay({ updatePromptOut: !isPromptFocused });
   }
-  if (updateFidelity && Number.isFinite(state?.fidelity)) {
+  if (!isAdjustingFidelity && Number.isFinite(state?.fidelity)) {
     setFidelityFromState(state.fidelity);
   }
-  if (updateSize && state?.size && imageSizeSelect) {
+  if (state?.size && imageSizeSelect && document.activeElement !== imageSizeSelect) {
     imageSizeSelect.value = state.size;
   }
+  return true;
 }
 
 async function syncSharedState() {
@@ -1168,11 +1172,9 @@ async function syncSharedState() {
       return;
     }
     const state = normalizeSharedState(data);
-    applyGlobalState(state, {
-      updatePrompt: !isEditingPrompt || !hasLoadedGlobalState,
-      updateFidelity: !isAdjustingFidelity || !hasLoadedGlobalState,
-      updateSize: document.activeElement !== imageSizeSelect
-    });
+    if (Number.isFinite(state.updated_at) && state.updated_at > lastSeenUpdatedAt) {
+      applyStateToUI(state);
+    }
   } catch (error) {
     // Ignore polling failures; retry on the next tick.
   }
@@ -1260,11 +1262,7 @@ async function generateImage() {
       throw new Error(message);
     }
     const state = normalizeSharedState(data);
-    applyGlobalState(state, {
-      updatePrompt: !isEditingPrompt,
-      updateFidelity: !isAdjustingFidelity,
-      updateSize: document.activeElement !== imageSizeSelect
-    });
+    applyStateToUI(state);
     setImageStatus("Image ready.");
   } catch (error) {
     setImageStatus(error?.message || "Image generation failed.");
@@ -1366,17 +1364,21 @@ if (sendWordsBtn) {
 
 const defaultImage = new Image();
 defaultImage.onload = () => {
-  drawTargetToCanvas(defaultImage);
-  targetPreview.src = "default.png";
+  if (!hasBackendState) {
+    drawTargetToCanvas(defaultImage);
+    targetPreview.src = "default.png";
+  }
 };
 defaultImage.src = "default.png";
 
 BOOTSTRAP_TOKENS.forEach((token) => addMessage(token));
 buildClusters();
 negativeOutput.textContent = NEGATIVE_PROMPT;
-promptOutput.textContent = "";
-manualPrompt.value = DEFAULT_OVERRIDE_PROMPT;
-generatePrompt();
+if (!hasBackendState) {
+  promptOutput.textContent = "";
+  manualPrompt.value = DEFAULT_OVERRIDE_PROMPT;
+  generatePrompt();
+}
 
 updateRateAndFidelity();
 setInterval(updateRateAndFidelity, SEND_RATE_TICK_MS);

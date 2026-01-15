@@ -264,11 +264,14 @@ async function loadGlobalState(env) {
   }
 }
 
-async function persistGlobalState(env, nextState) {
-  if (!env?.IMAGE_STATE_KV?.put || !nextState) {
+async function writeGlobalState(env, state) {
+  if (!env?.IMAGE_STATE_KV?.put || state === undefined || state === null) {
     return;
   }
-  await env.IMAGE_STATE_KV.put(GLOBAL_STATE_KEY, JSON.stringify(nextState));
+  const value = JSON.stringify(state);
+  console.log("KV.put global_state value (before):", value);
+  await env.IMAGE_STATE_KV.put(GLOBAL_STATE_KEY, value);
+  console.log("KV.put global_state value (after):", value);
 }
 
 function normalizePromptSessions(sessions) {
@@ -444,7 +447,22 @@ export default {
 
     if (request.method === "GET") {
       if (url.pathname === "/v1/state") {
-        const currentState = await loadGlobalState(env);
+        let storedState;
+        if (env?.IMAGE_STATE_KV?.get) {
+          try {
+            storedState = await env.IMAGE_STATE_KV.get(GLOBAL_STATE_KEY, { type: "json" });
+          } catch (error) {
+            storedState = null;
+          }
+        }
+
+        const currentState = storedState
+          ? normalizeGlobalState(storedState, DEFAULT_GLOBAL_STATE.updated_at)
+          : { ...DEFAULT_GLOBAL_STATE };
+
+        if (!storedState) {
+          await writeGlobalState(env, currentState);
+        }
         return jsonResponse(
           200,
           currentState,
@@ -485,7 +503,7 @@ export default {
         },
         updatedAt
       );
-      await persistGlobalState(env, nextState);
+      await writeGlobalState(env, nextState);
       return jsonResponse(200, nextState, corsHeaders, NO_CACHE_HEADERS);
     }
 
@@ -528,7 +546,7 @@ export default {
         },
         updatedAt
       );
-      await persistGlobalState(env, nextState);
+      await writeGlobalState(env, nextState);
 
       return jsonResponse(
         200,
@@ -622,7 +640,7 @@ export default {
       },
       Date.now()
     );
-    await persistGlobalState(env, nextState);
+    await writeGlobalState(env, nextState);
 
     return jsonResponse(
       200,

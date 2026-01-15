@@ -286,15 +286,27 @@ function normalizeGlobalState(state, fallbackUpdatedAt = 0) {
   };
 }
 
-async function loadGlobalState(env) {
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+async function loadState(env) {
   if (!env?.IMAGE_STATE_KV?.get) {
     return { ...DEFAULT_GLOBAL_STATE };
   }
   try {
-    const stored = await env.IMAGE_STATE_KV.get(GLOBAL_STATE_KEY, {
-      type: "json"
-    });
-    return normalizeGlobalState(stored, DEFAULT_GLOBAL_STATE.updated_at);
+    const s = await env.IMAGE_STATE_KV.get(GLOBAL_STATE_KEY, { type: "json" });
+    return {
+      prompt_sessions: [],
+      send_timestamps: [],
+      prompt: "",
+      fidelity: 0,
+      size: "1024x1024",
+      image_url: null,
+      image_data_url: null,
+      updated_at: 0,
+      ...(s || {})
+    };
   } catch (error) {
     return { ...DEFAULT_GLOBAL_STATE };
   }
@@ -455,22 +467,8 @@ export default {
 
     if (request.method === "GET") {
       if (url.pathname === "/v1/state") {
-        let storedState = null;
-        if (env?.IMAGE_STATE_KV?.get) {
-          try {
-            storedState = await env.IMAGE_STATE_KV.get(GLOBAL_STATE_KEY, { type: "json" });
-          } catch (error) {
-            storedState = null;
-          }
-        }
-
-        const currentState = storedState
-          ? normalizeGlobalState(storedState, DEFAULT_GLOBAL_STATE.updated_at)
-          : { ...DEFAULT_GLOBAL_STATE };
-
-        if (!storedState) {
-          await writeGlobalState(env, currentState);
-        }
+        const storedState = await loadState(env);
+        const currentState = normalizeGlobalState(storedState, DEFAULT_GLOBAL_STATE.updated_at);
         return jsonResponse(
           200,
           currentState,
@@ -498,7 +496,7 @@ export default {
       }
 
       const updatedAt = Date.now();
-      const existingState = await loadGlobalState(env);
+      const existingState = normalizeGlobalState(await loadState(env), updatedAt);
       const nextState = normalizeGlobalState(
         {
           prompt_sessions: Array.isArray(payload?.prompt_sessions)
@@ -541,37 +539,29 @@ export default {
         return jsonResponse(400, { error: "Words are required" }, corsHeaders);
       }
 
-      const existingState = await loadGlobalState(env);
-      const storedSessions = normalizePromptSessions(existingState.prompt_sessions);
-      storedSessions.push(words);
-      const nextEntries = storedSessions.slice(-MAX_WORD_ENTRIES);
-
-      const tokens = normalizeTokens(nextEntries.join(" "));
-      const prompt = buildPrompt(tokens);
-
-      const updatedAt = Date.now();
-      const cutoff = updatedAt - 30000;
-      const nextSendTimestamps = normalizeSendTimestamps(existingState.send_timestamps);
-      nextSendTimestamps.push(updatedAt);
-      const recentTimestamps = nextSendTimestamps.filter((timestamp) => timestamp >= cutoff);
-      const presses = recentTimestamps.length;
+      const now = Date.now();
+      const state = normalizeGlobalState(await loadState(env), now);
+      state.send_timestamps.push(now);
+      state.send_timestamps = state.send_timestamps.filter((timestamp) => timestamp >= now - 30000);
       const TARGET = 100;
-      const fidelity = Math.round((presses / TARGET) * 100);
-      const nextFidelity = Math.max(0, Math.min(100, fidelity));
-      const nextState = normalizeGlobalState(
-        {
-          prompt_sessions: nextEntries,
-          prompt,
-          send_timestamps: recentTimestamps,
-          fidelity: nextFidelity,
-          size: existingState.size,
-          image_url: existingState.image_url,
-          image_data_url: existingState.image_data_url,
-          updated_at: updatedAt
-        },
-        updatedAt
+      state.fidelity = clamp(
+        Math.round((state.send_timestamps.length / TARGET) * 100),
+        0,
+        100
       );
-      console.log("presses", presses, "fidelity", nextState.fidelity);
+
+      const storedSessions = normalizePromptSessions(state.prompt_sessions);
+      storedSessions.push(words);
+      state.prompt_sessions = storedSessions.slice(-MAX_WORD_ENTRIES);
+
+      const tokens = normalizeTokens(state.prompt_sessions.join(" "));
+      state.prompt = buildPrompt(tokens);
+      state.updated_at = now;
+
+      const nextState = normalizeGlobalState(
+        state,
+        now
+      );
       await writeGlobalState(env, nextState);
 
       return jsonResponse(
@@ -583,7 +573,7 @@ export default {
 
     if (url.pathname === "/v1/prompt/clear") {
       const updatedAt = Date.now();
-      const existingState = await loadGlobalState(env);
+      const existingState = normalizeGlobalState(await loadState(env), updatedAt);
       const nextState = normalizeGlobalState(
         {
           prompt_sessions: [],
@@ -603,7 +593,7 @@ export default {
 
     if (url.pathname === "/v1/fidelity") {
       const updatedAt = Date.now();
-      const existingState = await loadGlobalState(env);
+      const existingState = normalizeGlobalState(await loadState(env), updatedAt);
       const nextState = normalizeGlobalState(
         {
           prompt_sessions: existingState.prompt_sessions,
@@ -632,7 +622,7 @@ export default {
       return jsonResponse(400, { error: "Invalid JSON" }, corsHeaders);
     }
 
-    const existingState = await loadGlobalState(env);
+    const existingState = normalizeGlobalState(await loadState(env), Date.now());
     const prompt = typeof existingState?.prompt === "string" ? existingState.prompt.trim() : "";
     const size = typeof payload?.size === "string" ? payload.size.trim() : existingState.size;
     const fidelity = Number.isFinite(existingState?.fidelity)

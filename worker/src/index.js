@@ -2,6 +2,19 @@ const MAX_PROMPT_LENGTH = 4000;
 const ALLOWED_SIZES = new Set(["512x512", "1024x1024", "1024x1536", "1536x1024"]);
 const MAX_WORD_ENTRIES = 50;
 const GLOBAL_STATE_KEY = "global_state";
+const ALLOWED = new Set(["https://www.813wuwei.com", "https://813wuwei.com"]);
+// "Failed to fetch" in browser often means CORS preflight blocked; OPTIONS must return 204 with CORS headers.
+function corsHeaders(req) {
+  const origin = req.headers.get("Origin") || "";
+  const h = new Headers();
+  if (ALLOWED.has(origin)) {
+    h.set("Access-Control-Allow-Origin", origin);
+    h.set("Vary", "Origin");
+  }
+  h.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  h.set("Access-Control-Allow-Headers", "Content-Type");
+  return h;
+}
 // prompt_sessions aggregates prompt inputs only; using it for shared image state
 // caused desync because it never stored the canonical image payload.
 const DEFAULT_FIDELITY = 0;
@@ -206,31 +219,19 @@ const PLACE_MAP = new Map([
   ["sirens", ["thin high-frequency tension", "alertness"]]
 ]);
 
-function parseAllowedOrigins(value) {
-  return (value || "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-}
-
-function buildCorsHeaders(origin, allowedOrigins) {
-  if (!origin || !allowedOrigins.includes(origin)) {
-    return null;
+function jsonResponse(status, body, corsHeaderSource, extraHeaders) {
+  const headers = new Headers();
+  headers.set("Content-Type", "application/json");
+  if (corsHeaderSource) {
+    if (corsHeaderSource instanceof Headers) {
+      corsHeaderSource.forEach((value, key) => headers.set(key, value));
+    } else {
+      Object.entries(corsHeaderSource).forEach(([key, value]) => headers.set(key, value));
+    }
   }
-  return {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    Vary: "Origin"
-  };
-}
-
-function jsonResponse(status, body, corsHeaders, extraHeaders) {
-  const headers = {
-    "Content-Type": "application/json",
-    ...(corsHeaders || {}),
-    ...(extraHeaders || {})
-  };
+  if (extraHeaders) {
+    Object.entries(extraHeaders).forEach(([key, value]) => headers.set(key, value));
+  }
   return new Response(JSON.stringify(body), { status, headers });
 }
 
@@ -454,286 +455,303 @@ export class GlobalStateDO {
   }
 
   async fetch(request) {
-    const url = new URL(request.url);
-    const isApiRequest = url.pathname.startsWith("/v1/");
-    const origin = request.headers.get("Origin");
-    const allowedOrigins = parseAllowedOrigins(this.env.ALLOWED_ORIGINS);
-    const corsHeaders = isApiRequest ? buildCorsHeaders(origin, allowedOrigins) : null;
-
-    if (isApiRequest && origin && !corsHeaders) {
-      return jsonResponse(403, { error: "Origin not allowed" });
+    const corsHeaderSource = corsHeaders(request);
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaderSource });
     }
 
-    if (isApiRequest && request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders || {} });
-    }
+    try {
+      const url = new URL(request.url);
+      const isApiRequest = url.pathname.startsWith("/v1/");
 
-    if (!isApiRequest) {
-      return new Response("not found", { status: 404 });
-    }
+      if (!isApiRequest) {
+        return new Response("not found", { status: 404, headers: corsHeaderSource });
+      }
 
-    if (request.method === "GET") {
+      if (request.method === "GET") {
+        if (url.pathname === "/v1/state") {
+          const storedState = await loadState(this.storage, this.env);
+          const currentState = normalizeGlobalState(storedState, DEFAULT_GLOBAL_STATE.updated_at);
+          return jsonResponse(
+            200,
+            currentState,
+            corsHeaderSource,
+            NO_CACHE_HEADERS
+          );
+        }
+        return new Response("not found", { status: 404, headers: corsHeaderSource });
+      }
+
+      if (request.method !== "POST") {
+        return new Response("not found", { status: 404, headers: corsHeaderSource });
+      }
+
       if (url.pathname === "/v1/state") {
-        const storedState = await loadState(this.storage, this.env);
-        const currentState = normalizeGlobalState(storedState, DEFAULT_GLOBAL_STATE.updated_at);
+        let payload;
+        try {
+          payload = await request.json();
+        } catch (error) {
+          return jsonResponse(400, { error: "Invalid JSON" }, corsHeaderSource);
+        }
+
+        const updatedAt = Date.now();
+        const existingState = normalizeGlobalState(
+          await loadState(this.storage, this.env),
+          updatedAt
+        );
+        const nextState = normalizeGlobalState(
+          {
+            prompt_sessions: Array.isArray(payload?.prompt_sessions)
+              ? payload.prompt_sessions
+              : existingState.prompt_sessions,
+            prompt: typeof payload?.prompt === "string" ? payload.prompt.trim() : existingState.prompt,
+            image_data_url:
+              payload?.image_data_url === null
+                ? null
+                : typeof payload?.image_data_url === "string"
+                  ? payload.image_data_url
+                  : existingState.image_data_url,
+            image_url:
+              payload?.image_url === null
+                ? null
+                : typeof payload?.image_url === "string"
+                  ? payload.image_url
+                  : existingState.image_url,
+            send_timestamps: existingState.send_timestamps,
+            fidelity: existingState.fidelity,
+            size: typeof payload?.size === "string" ? payload.size.trim() : existingState.size,
+            updated_at: updatedAt
+          },
+          updatedAt
+        );
+        await writeGlobalState(this.storage, this.env, nextState);
+        return jsonResponse(200, nextState, corsHeaderSource, NO_CACHE_HEADERS);
+      }
+
+      if (url.pathname === "/v1/prompt/add") {
+        let payload;
+        try {
+          payload = await request.json();
+        } catch (error) {
+          return jsonResponse(400, { error: "Invalid JSON" }, corsHeaderSource);
+        }
+
+        const words = typeof payload?.words === "string" ? payload.words.trim() : "";
+        if (!words) {
+          return jsonResponse(400, { error: "Words are required" }, corsHeaderSource);
+        }
+
+        const state = await loadState(this.storage, this.env);
+        const now = Date.now();
+        state.send_timestamps = normalizeSendTimestamps(state.send_timestamps);
+        state.send_timestamps.push(now);
+        state.send_timestamps = state.send_timestamps.filter(
+          (timestamp) => timestamp >= now - 30000
+        );
+        const prunedLen = state.send_timestamps.length;
+        const TARGET = 100;
+        state.fidelity = clamp(
+          Math.ceil((prunedLen / TARGET) * 100),
+          0,
+          100
+        );
+
+        const storedSessions = normalizePromptSessions(state.prompt_sessions);
+        storedSessions.push(words);
+        state.prompt_sessions = storedSessions.slice(-MAX_WORD_ENTRIES);
+
+        const tokens = normalizeTokens(state.prompt_sessions.join(" "));
+        state.prompt = buildPrompt(tokens);
+        state.updated_at = now;
+
+        await writeGlobalState(this.storage, this.env, state);
+
         return jsonResponse(
           200,
-          currentState,
-          corsHeaders,
-          NO_CACHE_HEADERS
+          state,
+          corsHeaderSource
         );
       }
-      return new Response("not found", { status: 404 });
-    }
 
-    if (request.method !== "POST") {
-      return new Response("not found", { status: 404 });
-    }
+      if (url.pathname === "/v1/prompt/clear") {
+        const updatedAt = Date.now();
+        const existingState = normalizeGlobalState(
+          await loadState(this.storage, this.env),
+          updatedAt
+        );
+        const nextState = normalizeGlobalState(
+          {
+            prompt_sessions: [],
+            prompt: "",
+            send_timestamps: existingState.send_timestamps,
+            fidelity: existingState.fidelity,
+            size: existingState.size,
+            image_url: existingState.image_url,
+            image_data_url: existingState.image_data_url,
+            updated_at: updatedAt
+          },
+          updatedAt
+        );
+        await writeGlobalState(this.storage, this.env, nextState);
+        return jsonResponse(200, { ok: true }, corsHeaderSource);
+      }
 
-    if (!corsHeaders) {
-      return jsonResponse(403, { error: "Origin not allowed" }, corsHeaders);
-    }
+      if (url.pathname === "/v1/fidelity") {
+        const updatedAt = Date.now();
+        const existingState = normalizeGlobalState(
+          await loadState(this.storage, this.env),
+          updatedAt
+        );
+        const nextState = normalizeGlobalState(
+          {
+            prompt_sessions: existingState.prompt_sessions,
+            prompt: existingState.prompt,
+            send_timestamps: existingState.send_timestamps,
+            fidelity: existingState.fidelity,
+            size: existingState.size,
+            image_url: existingState.image_url,
+            image_data_url: existingState.image_data_url,
+            updated_at: updatedAt
+          },
+          updatedAt
+        );
+        await writeGlobalState(this.storage, this.env, nextState);
+        return jsonResponse(200, nextState, corsHeaderSource, NO_CACHE_HEADERS);
+      }
 
-    if (url.pathname === "/v1/state") {
+      if (url.pathname !== "/v1/img-gen") {
+        return new Response("not found", { status: 404, headers: corsHeaderSource });
+      }
+
       let payload;
       try {
         payload = await request.json();
       } catch (error) {
-        return jsonResponse(400, { error: "Invalid JSON" }, corsHeaders);
+        return jsonResponse(400, { error: "Invalid JSON" }, corsHeaderSource);
       }
 
-      const updatedAt = Date.now();
       const existingState = normalizeGlobalState(
         await loadState(this.storage, this.env),
-        updatedAt
+        Date.now()
       );
-      const nextState = normalizeGlobalState(
-        {
-          prompt_sessions: Array.isArray(payload?.prompt_sessions)
-            ? payload.prompt_sessions
-            : existingState.prompt_sessions,
-          prompt: typeof payload?.prompt === "string" ? payload.prompt.trim() : existingState.prompt,
-          image_data_url:
-            payload?.image_data_url === null
-              ? null
-              : typeof payload?.image_data_url === "string"
-                ? payload.image_data_url
-                : existingState.image_data_url,
-          image_url:
-            payload?.image_url === null
-              ? null
-              : typeof payload?.image_url === "string"
-                ? payload.image_url
-                : existingState.image_url,
-          send_timestamps: existingState.send_timestamps,
-          fidelity: existingState.fidelity,
-          size: typeof payload?.size === "string" ? payload.size.trim() : existingState.size,
-          updated_at: updatedAt
-        },
-        updatedAt
-      );
-      await writeGlobalState(this.storage, this.env, nextState);
-      return jsonResponse(200, nextState, corsHeaders, NO_CACHE_HEADERS);
-    }
+      const prompt = typeof existingState?.prompt === "string" ? existingState.prompt.trim() : "";
+      const size = typeof payload?.size === "string" ? payload.size.trim() : existingState.size;
+      const fidelity = Number.isFinite(existingState?.fidelity)
+        ? existingState.fidelity
+        : DEFAULT_FIDELITY;
 
-    if (url.pathname === "/v1/prompt/add") {
-      let payload;
+      if (!prompt) {
+        return jsonResponse(400, { error: "Prompt is required" }, corsHeaderSource);
+      }
+
+      if (prompt.length > MAX_PROMPT_LENGTH) {
+        return jsonResponse(400, { error: "Prompt exceeds 4000 characters" }, corsHeaderSource);
+      }
+
+      if (!ALLOWED_SIZES.has(size)) {
+        return jsonResponse(400, { error: "Invalid size" }, corsHeaderSource);
+      }
+
+      const model = this.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
+
+      let upstreamResponse;
       try {
-        payload = await request.json();
+        upstreamResponse = await fetch("https://api.openai.com/v1/images/generations", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.env.OPENAI_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model,
+            prompt,
+            n: 1,
+            size
+          })
+        });
       } catch (error) {
-        return jsonResponse(400, { error: "Invalid JSON" }, corsHeaders);
+        return jsonResponse(502, { error: "Failed to reach OpenAI" }, corsHeaderSource);
       }
 
-      const words = typeof payload?.words === "string" ? payload.words.trim() : "";
-      if (!words) {
-        return jsonResponse(400, { error: "Words are required" }, corsHeaders);
+      let upstreamJson;
+      try {
+        upstreamJson = await upstreamResponse.json();
+      } catch (error) {
+        return jsonResponse(502, { error: "Invalid OpenAI response" }, corsHeaderSource);
       }
 
-      const state = await loadState(this.storage, this.env);
-      const now = Date.now();
-      state.send_timestamps = normalizeSendTimestamps(state.send_timestamps);
-      state.send_timestamps.push(now);
-      state.send_timestamps = state.send_timestamps.filter((timestamp) => timestamp >= now - 30000);
-      const prunedLen = state.send_timestamps.length;
-      const TARGET = 100;
-      state.fidelity = clamp(
-        Math.ceil((prunedLen / TARGET) * 100),
-        0,
-        100
-      );
+      if (!upstreamResponse.ok) {
+        const message =
+          upstreamJson?.error?.message || "OpenAI request failed";
+        return jsonResponse(upstreamResponse.status, { error: message }, corsHeaderSource);
+      }
 
-      const storedSessions = normalizePromptSessions(state.prompt_sessions);
-      storedSessions.push(words);
-      state.prompt_sessions = storedSessions.slice(-MAX_WORD_ENTRIES);
+      const b64 = upstreamJson?.data?.[0]?.b64_json;
+      if (!b64) {
+        return jsonResponse(502, { error: "OpenAI response missing image" }, corsHeaderSource);
+      }
 
-      const tokens = normalizeTokens(state.prompt_sessions.join(" "));
-      state.prompt = buildPrompt(tokens);
-      state.updated_at = now;
-
-      await writeGlobalState(this.storage, this.env, state);
-
-      return jsonResponse(
-        200,
-        state,
-        corsHeaders
-      );
-    }
-
-    if (url.pathname === "/v1/prompt/clear") {
+      const imageDataUrl = `data:image/png;base64,${b64}`;
       const updatedAt = Date.now();
-      const existingState = normalizeGlobalState(
-        await loadState(this.storage, this.env),
-        updatedAt
-      );
-      const nextState = normalizeGlobalState(
-        {
-          prompt_sessions: [],
-          prompt: "",
-          send_timestamps: existingState.send_timestamps,
-          fidelity: existingState.fidelity,
-          size: existingState.size,
-          image_url: existingState.image_url,
-          image_data_url: existingState.image_data_url,
-          updated_at: updatedAt
-        },
-        updatedAt
-      );
-      await writeGlobalState(this.storage, this.env, nextState);
-      return jsonResponse(200, { ok: true }, corsHeaders);
-    }
-
-    if (url.pathname === "/v1/fidelity") {
-      const updatedAt = Date.now();
-      const existingState = normalizeGlobalState(
-        await loadState(this.storage, this.env),
-        updatedAt
-      );
       const nextState = normalizeGlobalState(
         {
           prompt_sessions: existingState.prompt_sessions,
-          prompt: existingState.prompt,
+          prompt,
           send_timestamps: existingState.send_timestamps,
-          fidelity: existingState.fidelity,
-          size: existingState.size,
-          image_url: existingState.image_url,
-          image_data_url: existingState.image_data_url,
+          fidelity,
+          size,
+          image_url: null,
+          image_data_url: imageDataUrl,
           updated_at: updatedAt
         },
         updatedAt
       );
       await writeGlobalState(this.storage, this.env, nextState);
-      return jsonResponse(200, nextState, corsHeaders, NO_CACHE_HEADERS);
-    }
 
-    if (url.pathname !== "/v1/img-gen") {
-      return new Response("not found", { status: 404 });
-    }
-
-    let payload;
-    try {
-      payload = await request.json();
+      return jsonResponse(
+        200,
+        nextState,
+        corsHeaderSource,
+        NO_CACHE_HEADERS
+      );
     } catch (error) {
-      return jsonResponse(400, { error: "Invalid JSON" }, corsHeaders);
+      return jsonResponse(
+        500,
+        { error: error?.message || "Internal error" },
+        corsHeaderSource
+      );
     }
-
-    const existingState = normalizeGlobalState(
-      await loadState(this.storage, this.env),
-      Date.now()
-    );
-    const prompt = typeof existingState?.prompt === "string" ? existingState.prompt.trim() : "";
-    const size = typeof payload?.size === "string" ? payload.size.trim() : existingState.size;
-    const fidelity = Number.isFinite(existingState?.fidelity)
-      ? existingState.fidelity
-      : DEFAULT_FIDELITY;
-
-    if (!prompt) {
-      return jsonResponse(400, { error: "Prompt is required" }, corsHeaders);
-    }
-
-    if (prompt.length > MAX_PROMPT_LENGTH) {
-      return jsonResponse(400, { error: "Prompt exceeds 4000 characters" }, corsHeaders);
-    }
-
-    if (!ALLOWED_SIZES.has(size)) {
-      return jsonResponse(400, { error: "Invalid size" }, corsHeaders);
-    }
-
-    const model = this.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
-
-    let upstreamResponse;
-    try {
-      upstreamResponse = await fetch("https://api.openai.com/v1/images/generations", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.env.OPENAI_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model,
-          prompt,
-          n: 1,
-          size
-        })
-      });
-    } catch (error) {
-      return jsonResponse(502, { error: "Failed to reach OpenAI" }, corsHeaders);
-    }
-
-    let upstreamJson;
-    try {
-      upstreamJson = await upstreamResponse.json();
-    } catch (error) {
-      return jsonResponse(502, { error: "Invalid OpenAI response" }, corsHeaders);
-    }
-
-    if (!upstreamResponse.ok) {
-      const message =
-        upstreamJson?.error?.message || "OpenAI request failed";
-      return jsonResponse(upstreamResponse.status, { error: message }, corsHeaders);
-    }
-
-    const b64 = upstreamJson?.data?.[0]?.b64_json;
-    if (!b64) {
-      return jsonResponse(502, { error: "OpenAI response missing image" }, corsHeaders);
-    }
-
-    const imageDataUrl = `data:image/png;base64,${b64}`;
-    const updatedAt = Date.now();
-    const nextState = normalizeGlobalState(
-      {
-        prompt_sessions: existingState.prompt_sessions,
-        prompt,
-        send_timestamps: existingState.send_timestamps,
-        fidelity,
-        size,
-        image_url: null,
-        image_data_url: imageDataUrl,
-        updated_at: updatedAt
-      },
-      updatedAt
-    );
-    await writeGlobalState(this.storage, this.env, nextState);
-
-    return jsonResponse(
-      200,
-      nextState,
-      corsHeaders,
-      NO_CACHE_HEADERS
-    );
   }
 }
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const corsHeaderSource = corsHeaders(request);
+
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaderSource });
+    }
 
     if (url.pathname === "/health" && request.method === "GET") {
       return new Response("ok", { status: 200 });
     }
 
     if (url.pathname.startsWith("/v1/")) {
-      const id = env.GLOBAL_STATE_DO.idFromName("global");
-      return env.GLOBAL_STATE_DO.get(id).fetch(request);
+      try {
+        const id = env.GLOBAL_STATE_DO.idFromName("global");
+        const resp = await env.GLOBAL_STATE_DO.get(id).fetch(request);
+        const out = new Response(resp.body, resp);
+        corsHeaderSource.forEach((value, key) => out.headers.set(key, value));
+        out.headers.set("Cache-Control", "no-store");
+        return out;
+      } catch (error) {
+        return jsonResponse(
+          500,
+          { error: error?.message || "Internal error" },
+          corsHeaderSource
+        );
+      }
     }
 
     return new Response("not found", { status: 404 });

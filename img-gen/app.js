@@ -10,7 +10,7 @@ ${NON_LITERAL_RULES}`;
 
 const DEFAULT_TARGET_SIZE = 512;
 const DEFAULT_IMAGE_SIZE = "1536x1024";
-const STATE_POLL_MS = 4000;
+const STATE_POLL_MS = 5000;
 const WORKER_URL = "https://img-gen-backend.nnjeff-prod.workers.dev";
 
 const BOOTSTRAP_TOKENS = [
@@ -310,6 +310,7 @@ const screenSize = {
 };
 
 const sensitivityInput = document.getElementById("sensitivity");
+const fidelitySlider = document.getElementById("fidelitySlider");
 const userWordsInput = document.getElementById("userWords");
 const sendWordsBtn = document.getElementById("sendWordsBtn");
 const promptOut = document.getElementById("promptOut");
@@ -368,13 +369,16 @@ let targetTexture = null;
 let clusters = [];
 let lastPrompt = "";
 let lastNegative = NEGATIVE_PROMPT;
-let lastSharedUpdate = 0;
+let lastSeenUpdatedAt = 0;
 let lastSharedImageUrl = null;
+let hasLoadedGlobalState = false;
 let sendTimes = [];
 let emaRate = 0;
 let fidelity = 0.05;
 let targetFidelity = 0.05;
 let sensitivity01 = 0.5;
+let isEditingPrompt = false;
+let isAdjustingFidelity = false;
 
 const RATE_WINDOW_MS = 60000;
 const RATE_MAX = 30;
@@ -394,6 +398,36 @@ if (sensitivityInput) {
   sensitivity01 = clamp(Number.parseFloat(sensitivityInput.value), 0, 1);
   sensitivityInput.addEventListener("input", (event) => {
     sensitivity01 = clamp(Number.parseFloat(event.target.value), 0, 1);
+  });
+}
+
+function updatePromptEditingState() {
+  const active = document.activeElement;
+  isEditingPrompt = active === promptOut || active === userWordsInput;
+}
+
+if (promptOut) {
+  promptOut.addEventListener("focus", updatePromptEditingState);
+  promptOut.addEventListener("blur", updatePromptEditingState);
+}
+
+if (userWordsInput) {
+  userWordsInput.addEventListener("focus", updatePromptEditingState);
+  userWordsInput.addEventListener("blur", updatePromptEditingState);
+}
+
+if (fidelitySlider) {
+  fidelitySlider.addEventListener("pointerdown", () => {
+    isAdjustingFidelity = true;
+  });
+  fidelitySlider.addEventListener("pointerup", () => {
+    isAdjustingFidelity = false;
+  });
+  fidelitySlider.addEventListener("pointercancel", () => {
+    isAdjustingFidelity = false;
+  });
+  fidelitySlider.addEventListener("blur", () => {
+    isAdjustingFidelity = false;
   });
 }
 
@@ -598,6 +632,26 @@ function motionCurve(value) {
   return Math.log2(1 + 7 * value) / Math.log2(8);
 }
 
+function setFidelityFromState(value) {
+  if (!Number.isFinite(value)) {
+    return;
+  }
+  const clamped = clamp(value, FIDELITY_MIN, FIDELITY_MAX);
+  targetFidelity = clamped;
+  fidelity = clamped;
+  if (fidelitySlider && !isAdjustingFidelity) {
+    fidelitySlider.value = String(clamped);
+  }
+  if (devEnabled) {
+    if (targetFidelityReadout) {
+      targetFidelityReadout.textContent = targetFidelity.toFixed(3);
+    }
+    if (currentFidelityReadout) {
+      currentFidelityReadout.textContent = fidelity.toFixed(3);
+    }
+  }
+}
+
 function recordSendEvent() {
   sendTimes.push(Date.now());
 }
@@ -616,6 +670,10 @@ function updateRateAndFidelity() {
   const curved = Math.pow(normalizedRate, 1 / sensitivity);
   targetFidelity = FIDELITY_MIN + (FIDELITY_MAX - FIDELITY_MIN) * curved;
   fidelity = lerp(fidelity, targetFidelity, FIDELITY_ALPHA);
+
+  if (fidelitySlider && !isAdjustingFidelity) {
+    fidelitySlider.value = String(fidelity);
+  }
 
   if (devEnabled) {
     if (rateReadout) {
@@ -1042,19 +1100,14 @@ function setImageStatus(message) {
   imageStatus.textContent = message || "—";
 }
 
-function applySharedImage(imageDataUrl, updatedAt) {
+function applySharedImage(imageDataUrl) {
   if (!imageDataUrl) {
     return;
   }
-  if (updatedAt && updatedAt <= lastSharedUpdate) {
-    return;
-  }
   if (imageDataUrl === lastSharedImageUrl) {
-    lastSharedUpdate = Math.max(lastSharedUpdate, updatedAt || 0);
     return;
   }
 
-  lastSharedUpdate = updatedAt || Date.now();
   lastSharedImageUrl = imageDataUrl;
 
   if (generatedImage) {
@@ -1066,6 +1119,40 @@ function applySharedImage(imageDataUrl, updatedAt) {
   };
   image.src = imageDataUrl;
   setImageStatus("Image synced.");
+}
+
+function normalizeSharedState(data) {
+  return {
+    prompt: typeof data?.prompt === "string" ? data.prompt : "",
+    image_data_url: typeof data?.image_data_url === "string" ? data.image_data_url : "",
+    updated_at: Number.isFinite(data?.updated_at) ? data.updated_at : 0,
+    fidelity: Number.isFinite(data?.fidelity) ? data.fidelity : null,
+    size: typeof data?.size === "string" ? data.size : ""
+  };
+}
+
+function applyGlobalState(state, { updatePrompt = true, updateFidelity = true, updateSize = true } = {}) {
+  const updatedAt = Number.isFinite(state?.updated_at) ? state.updated_at : 0;
+  if (hasLoadedGlobalState && updatedAt <= lastSeenUpdatedAt) {
+    return;
+  }
+  hasLoadedGlobalState = true;
+  lastSeenUpdatedAt = updatedAt;
+
+  if (typeof state?.image_data_url === "string" && state.image_data_url) {
+    applySharedImage(state.image_data_url);
+  }
+  if (updatePrompt && typeof state?.prompt === "string") {
+    lastPrompt = state.prompt.trim();
+    lastNegative = NEGATIVE_PROMPT;
+    updatePromptDisplay();
+  }
+  if (updateFidelity && Number.isFinite(state?.fidelity)) {
+    setFidelityFromState(state.fidelity);
+  }
+  if (updateSize && state?.size && imageSizeSelect) {
+    imageSizeSelect.value = state.size;
+  }
 }
 
 async function syncSharedState() {
@@ -1080,16 +1167,12 @@ async function syncSharedState() {
       setImageStatus(message);
       return;
     }
-    if (typeof data?.prompt === "string" && data.prompt.trim()) {
-      lastPrompt = data.prompt.trim();
-      lastNegative = NEGATIVE_PROMPT;
-      updatePromptDisplay();
-    }
-    const imageDataUrl = typeof data?.image_data_url === "string" ? data.image_data_url : "";
-    const updatedAt = Number.isFinite(data?.updated_at) ? data.updated_at : Date.now();
-    if (imageDataUrl) {
-      applySharedImage(imageDataUrl, updatedAt);
-    }
+    const state = normalizeSharedState(data);
+    applyGlobalState(state, {
+      updatePrompt: !isEditingPrompt || !hasLoadedGlobalState,
+      updateFidelity: !isAdjustingFidelity || !hasLoadedGlobalState,
+      updateSize: document.activeElement !== imageSizeSelect
+    });
   } catch (error) {
     // Ignore polling failures; retry on the next tick.
   }
@@ -1168,7 +1251,7 @@ async function generateImage() {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ prompt: promptText, size })
+      body: JSON.stringify({ prompt: promptText, size, fidelity })
     });
 
     const data = await response.json().catch(() => ({}));
@@ -1176,10 +1259,12 @@ async function generateImage() {
       const message = data?.error || "Image generation failed.";
       throw new Error(message);
     }
-
-    if (data?.image_data_url) {
-      applySharedImage(data.image_data_url, Date.now());
-    }
+    const state = normalizeSharedState(data);
+    applyGlobalState(state, {
+      updatePrompt: !isEditingPrompt,
+      updateFidelity: !isAdjustingFidelity,
+      updateSize: document.activeElement !== imageSizeSelect
+    });
     setImageStatus("Image ready.");
   } catch (error) {
     setImageStatus(error?.message || "Image generation failed.");

@@ -511,6 +511,25 @@ export default {
 
       const tokens = normalizeTokens(nextEntries.join(" "));
       const prompt = buildPrompt(tokens);
+
+      const updatedAt = Date.now();
+      const existingState = await loadGlobalState(env);
+      const requestedSize = typeof payload?.size === "string" ? payload.size.trim() : "";
+      const requestedFidelity = Number.isFinite(payload?.fidelity)
+        ? payload.fidelity
+        : existingState.fidelity;
+      const nextState = normalizeGlobalState(
+        {
+          prompt,
+          image_data_url: "",
+          fidelity: requestedFidelity,
+          size: ALLOWED_SIZES.has(requestedSize) ? requestedSize : existingState.size,
+          updated_at: updatedAt
+        },
+        updatedAt
+      );
+      await persistGlobalState(env, nextState);
+
       return jsonResponse(
         200,
         { prompt, tokens: [...new Set(tokens)], count: nextEntries.length },

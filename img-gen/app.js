@@ -379,6 +379,8 @@ let targetFidelity = 0.05;
 let sensitivity01 = 0.5;
 let isEditingPrompt = false;
 let isAdjustingFidelity = false;
+let hasAppliedBackendFidelity = false;
+let hasAppliedUserFidelity = false;
 
 const RATE_WINDOW_MS = 60000;
 const RATE_MAX = 30;
@@ -387,6 +389,7 @@ const FIDELITY_MAX = 0.98;
 const RATE_ALPHA = 0.05;
 const FIDELITY_ALPHA = 0.03;
 const SEND_RATE_TICK_MS = 100;
+const FIDELITY_STORAGE_KEY = "imgGenFidelity";
 
 const devEnabled = new URLSearchParams(window.location.search).get("dev") === "1";
 
@@ -417,6 +420,14 @@ if (userWordsInput) {
 }
 
 if (fidelitySlider) {
+  const handleFidelityInput = (event) => {
+    const rawValue = Number.parseFloat(event.target.value);
+    if (!Number.isFinite(rawValue)) {
+      return;
+    }
+    setFidelityUI(rawValue, "slider");
+    localStorage.setItem(FIDELITY_STORAGE_KEY, String(rawValue));
+  };
   fidelitySlider.addEventListener("pointerdown", () => {
     isAdjustingFidelity = true;
   });
@@ -429,6 +440,8 @@ if (fidelitySlider) {
   fidelitySlider.addEventListener("blur", () => {
     isAdjustingFidelity = false;
   });
+  fidelitySlider.addEventListener("input", handleFidelityInput);
+  fidelitySlider.addEventListener("change", handleFidelityInput);
 }
 
 function resize() {
@@ -632,16 +645,27 @@ function motionCurve(value) {
   return Math.log2(1 + 7 * value) / Math.log2(8);
 }
 
-function setFidelityFromState(value) {
-  if (!Number.isFinite(value)) {
-    return;
+function getFidelityScale() {
+  if (!fidelitySlider) {
+    return 1;
   }
-  const clamped = clamp(value, FIDELITY_MIN, FIDELITY_MAX);
-  targetFidelity = clamped;
-  fidelity = clamped;
-  if (fidelitySlider && !isAdjustingFidelity) {
-    fidelitySlider.value = String(clamped);
+  const maxValue = Number.parseFloat(fidelitySlider.max);
+  return Number.isFinite(maxValue) && maxValue > 1 ? 100 : 1;
+}
+
+function normalizeFidelityValue(value) {
+  const numeric = Number.parseFloat(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
   }
+  return numeric / getFidelityScale();
+}
+
+function denormalizeFidelityValue(value) {
+  return value * getFidelityScale();
+}
+
+function updateFidelityReadouts() {
   if (devEnabled) {
     if (targetFidelityReadout) {
       targetFidelityReadout.textContent = targetFidelity.toFixed(3);
@@ -650,6 +674,32 @@ function setFidelityFromState(value) {
       currentFidelityReadout.textContent = fidelity.toFixed(3);
     }
   }
+}
+
+function setFidelityUI(value, source) {
+  const normalized = normalizeFidelityValue(value);
+  if (!Number.isFinite(normalized)) {
+    return;
+  }
+  const clamped = clamp(normalized, FIDELITY_MIN, FIDELITY_MAX);
+  targetFidelity = clamped;
+  fidelity = clamped;
+  if (fidelitySlider && !isAdjustingFidelity) {
+    fidelitySlider.value = String(denormalizeFidelityValue(clamped));
+  }
+  updateFidelityReadouts();
+  if (source === "backend") {
+    hasAppliedBackendFidelity = true;
+  } else if (source === "slider" || source === "local") {
+    hasAppliedUserFidelity = true;
+  }
+}
+
+function getFidelityPayloadValue() {
+  if (!Number.isFinite(fidelity)) {
+    return fidelity;
+  }
+  return denormalizeFidelityValue(fidelity);
 }
 
 function recordSendEvent() {
@@ -665,14 +715,16 @@ function updateRateAndFidelity() {
   const instantRate = sendTimes.length * (60000 / RATE_WINDOW_MS);
   emaRate = lerp(emaRate, instantRate, RATE_ALPHA);
 
-  const normalizedRate = clamp(emaRate / RATE_MAX, 0, 1);
-  const sensitivity = 0.25 + sensitivity01 * 2.75;
-  const curved = Math.pow(normalizedRate, 1 / sensitivity);
-  targetFidelity = FIDELITY_MIN + (FIDELITY_MAX - FIDELITY_MIN) * curved;
-  fidelity = lerp(fidelity, targetFidelity, FIDELITY_ALPHA);
+  if (!hasAppliedBackendFidelity && !hasAppliedUserFidelity) {
+    const normalizedRate = clamp(emaRate / RATE_MAX, 0, 1);
+    const sensitivity = 0.25 + sensitivity01 * 2.75;
+    const curved = Math.pow(normalizedRate, 1 / sensitivity);
+    targetFidelity = FIDELITY_MIN + (FIDELITY_MAX - FIDELITY_MIN) * curved;
+    fidelity = lerp(fidelity, targetFidelity, FIDELITY_ALPHA);
 
-  if (fidelitySlider && !isAdjustingFidelity) {
-    fidelitySlider.value = String(fidelity);
+    if (fidelitySlider && !isAdjustingFidelity) {
+      fidelitySlider.value = String(denormalizeFidelityValue(fidelity));
+    }
   }
 
   if (devEnabled) {
@@ -682,12 +734,7 @@ function updateRateAndFidelity() {
     if (emaRateReadout) {
       emaRateReadout.textContent = emaRate.toFixed(2);
     }
-    if (targetFidelityReadout) {
-      targetFidelityReadout.textContent = targetFidelity.toFixed(3);
-    }
-    if (currentFidelityReadout) {
-      currentFidelityReadout.textContent = fidelity.toFixed(3);
-    }
+    updateFidelityReadouts();
   }
 }
 
@@ -1151,7 +1198,7 @@ function applyStateToUI(state) {
     updatePromptDisplay({ updatePromptOut: !isPromptFocused });
   }
   if (!isAdjustingFidelity && Number.isFinite(state?.fidelity)) {
-    setFidelityFromState(state.fidelity);
+    setFidelityUI(state.fidelity, "backend");
   }
   if (state?.size && imageSizeSelect && document.activeElement !== imageSizeSelect) {
     imageSizeSelect.value = state.size;
@@ -1177,6 +1224,48 @@ async function syncSharedState() {
     }
   } catch (error) {
     // Ignore polling failures; retry on the next tick.
+  }
+}
+
+async function hydrateFidelityFromBackend() {
+  if (!fidelitySlider) {
+    return;
+  }
+  try {
+    const response = await fetch(`${WORKER_URL}/v1/state`, {
+      method: "GET",
+      cache: "no-store"
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      const state = normalizeSharedState(data);
+      if (Number.isFinite(state?.fidelity)) {
+        setFidelityUI(state.fidelity, "backend");
+        return;
+      }
+    }
+  } catch (error) {
+    // Ignore initial load failures; fallback to local storage.
+  }
+
+  const stored = Number.parseFloat(localStorage.getItem(FIDELITY_STORAGE_KEY));
+  if (!hasAppliedBackendFidelity && Number.isFinite(stored)) {
+    setFidelityUI(stored, "local");
+  }
+}
+
+function scheduleInitialFidelityLoad() {
+  const run = () => {
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        hydrateFidelityFromBackend();
+      }, 0);
+    });
+  };
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", run);
+  } else {
+    run();
   }
 }
 
@@ -1207,7 +1296,7 @@ async function sendWords() {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ words, fidelity })
+      body: JSON.stringify({ words, fidelity: getFidelityPayloadValue() })
     });
 
     const data = await response.json().catch(() => ({}));
@@ -1253,7 +1342,7 @@ async function generateImage() {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ prompt: promptText, size, fidelity })
+      body: JSON.stringify({ prompt: promptText, size, fidelity: getFidelityPayloadValue() })
     });
 
     const data = await response.json().catch(() => ({}));
@@ -1380,6 +1469,7 @@ if (!hasBackendState) {
   generatePrompt();
 }
 
+scheduleInitialFidelityLoad();
 updateRateAndFidelity();
 setInterval(updateRateAndFidelity, SEND_RATE_TICK_MS);
 

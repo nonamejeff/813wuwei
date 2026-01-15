@@ -12,5 +12,19 @@
       "binding": "IMAGE_STATE_KV",
       "id": "45df9960641a4224ab06c8c74aebcd51"
     }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "GLOBAL_STATE_DO",
+        "class_name": "GlobalStateDO"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["GlobalStateDO"]
+    }
   ]
 }

@@ -1,36 +1,38 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "img-gen-backend",
-  "main": "src/index.js",
-  "compatibility_date": "2026-01-14",
-  "vars": {
-    "ALLOWED_ORIGINS": "https://www.813wuwei.com,https://813wuwei.com",
-    "OPENAI_IMAGE_MODEL": "gpt-image-1"
-  },
-  "kv_namespaces": [
-    {
-      "binding": "IMAGE_STATE_KV",
-      "id": "45df9960641a4224ab06c8c74aebcd51"
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "IMG_BUCKET",
-      "bucket_name": "img-gen-assets"
-    }
-  ],
-  "durable_objects": {
-    "bindings": [
-      {
-        "name": "GLOBAL_STATE_DO",
-        "class_name": "GlobalStateDO"
-      }
-    ]
-  },
-  "migrations": [
-    {
-      "tag": "v1",
-      "new_sqlite_classes": ["GlobalStateDO"]
-    }
-  ]
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "img-gen-backend",
+	"main": "src/index.js",
+	"compatibility_date": "2026-01-14",
+	"vars": {
+		"ALLOWED_ORIGINS": "https://www.813wuwei.com,https://813wuwei.com",
+		"OPENAI_IMAGE_MODEL": "gpt-image-1"
+	},
+	"kv_namespaces": [
+		{
+			"binding": "IMAGE_STATE_KV",
+			"id": "45df9960641a4224ab06c8c74aebcd51"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "IMG_BUCKET",
+			"bucket_name": "img-gen-assets"
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "GLOBAL_STATE_DO",
+				"class_name": "GlobalStateDO"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"GlobalStateDO"
+			]
+		}
+	]
 }

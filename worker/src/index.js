@@ -4,12 +4,15 @@ const MAX_WORD_ENTRIES = 50;
 const promptSessions = [];
 const GLOBAL_STATE_KEY = "global_state";
 const PROMPT_SESSIONS_KEY = "prompt_sessions";
+// prompt_sessions aggregates prompt inputs only; using it for shared image state
+// caused desync because it never stored the canonical image payload.
+const DEFAULT_FIDELITY = 0.05;
 const DEFAULT_GLOBAL_STATE = {
   prompt: "",
   image_data_url: "",
   updated_at: 0,
-  fidelity: 0.05,
-  size: ""
+  fidelity: DEFAULT_FIDELITY,
+  size: "1024x1024"
 };
 // NOTE: Do not store global image state in-memory; per-worker isolates reset often
 // and are not shared across regions, so memory state diverges between clients.
@@ -243,7 +246,7 @@ function normalizeGlobalState(state, fallbackUpdatedAt = 0) {
     image_data_url: typeof state?.image_data_url === "string" ? state.image_data_url : "",
     updated_at: Number.isFinite(state?.updated_at) ? state.updated_at : fallbackUpdatedAt,
     fidelity: Number.isFinite(state?.fidelity) ? state.fidelity : DEFAULT_GLOBAL_STATE.fidelity,
-    size: typeof state?.size === "string" ? state.size : ""
+    size: typeof state?.size === "string" ? state.size : DEFAULT_GLOBAL_STATE.size
   };
 }
 
@@ -476,7 +479,7 @@ export default {
             typeof payload?.image_data_url === "string" ? payload.image_data_url : "",
           fidelity: Number.isFinite(payload?.fidelity)
             ? payload.fidelity
-            : DEFAULT_GLOBAL_STATE.fidelity,
+            : DEFAULT_FIDELITY,
           size: typeof payload?.size === "string" ? payload.size.trim() : "",
           updated_at: updatedAt
         },
@@ -536,7 +539,7 @@ export default {
     const size = typeof payload?.size === "string" ? payload.size.trim() : "";
     const fidelity = Number.isFinite(payload?.fidelity)
       ? payload.fidelity
-      : DEFAULT_GLOBAL_STATE.fidelity;
+      : DEFAULT_FIDELITY;
 
     if (!prompt) {
       return jsonResponse(400, { error: "Prompt is required" }, corsHeaders);

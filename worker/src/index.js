@@ -17,8 +17,7 @@ const DEFAULT_GLOBAL_STATE = {
 };
 // NOTE: Do not store global image state in-memory; per-worker isolates reset often
 // and are not shared across regions, so memory state diverges between clients.
-// KV persistence is now used for global image state. Deploy after changes:
-// cd worker && npm run deploy
+// Durable Objects now hold canonical state with optional KV snapshots for durability.
 const STYLE_SPINE =
   "abstract, non-figurative, atmospheric field texture, wabi-sabi restraint, imperfect continuity, subdued palette, soft film grain, natural diffusion, quiet contrast, no subjects, no objects, no readable symbols";
 const NON_LITERAL_RULES =
@@ -290,8 +289,15 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-async function loadState(env) {
-  const stored = await env.IMAGE_STATE_KV.get("global_state", { type: "json" });
+async function loadState(storage, env) {
+  const stored = await storage.get(GLOBAL_STATE_KEY);
+  if (!stored && env?.IMAGE_STATE_KV?.get) {
+    const kvStored = await env.IMAGE_STATE_KV.get(GLOBAL_STATE_KEY, { type: "json" });
+    if (kvStored) {
+      await storage.put(GLOBAL_STATE_KEY, kvStored);
+      return Object.assign({}, DEFAULT_GLOBAL_STATE, kvStored);
+    }
+  }
   const defaults = {
     prompt_sessions: [],
     send_timestamps: [],
@@ -305,13 +311,16 @@ async function loadState(env) {
   return Object.assign({}, defaults, stored || {});
 }
 
-async function writeGlobalState(env, state) {
-  if (!env?.IMAGE_STATE_KV?.put || state === undefined || state === null) {
+async function writeGlobalState(storage, env, state) {
+  if (!storage?.put || state === undefined || state === null) {
     return;
   }
   const normalized = normalizeGlobalState(state, state.updated_at);
-  const value = JSON.stringify(normalized);
-  await env.IMAGE_STATE_KV.put(GLOBAL_STATE_KEY, value);
+  await storage.put(GLOBAL_STATE_KEY, normalized);
+  if (env?.IMAGE_STATE_KV?.put) {
+    const value = JSON.stringify(normalized);
+    await env.IMAGE_STATE_KV.put(GLOBAL_STATE_KEY, value);
+  }
 }
 
 function normalizeTokens(words) {
@@ -437,17 +446,18 @@ function buildPrompt(tokens) {
   return `${STYLE_SPINE}\n${moodLine}\n${NON_LITERAL_RULES}`.slice(0, MAX_PROMPT_LENGTH);
 }
 
-export default {
-  async fetch(request, env) {
+export class GlobalStateDO {
+  constructor(state, env) {
+    this.state = state;
+    this.storage = state.storage;
+    this.env = env;
+  }
+
+  async fetch(request) {
     const url = new URL(request.url);
-
-    if (url.pathname === "/health" && request.method === "GET") {
-      return new Response("ok", { status: 200 });
-    }
-
     const isApiRequest = url.pathname.startsWith("/v1/");
     const origin = request.headers.get("Origin");
-    const allowedOrigins = parseAllowedOrigins(env.ALLOWED_ORIGINS);
+    const allowedOrigins = parseAllowedOrigins(this.env.ALLOWED_ORIGINS);
     const corsHeaders = isApiRequest ? buildCorsHeaders(origin, allowedOrigins) : null;
 
     if (isApiRequest && origin && !corsHeaders) {
@@ -458,9 +468,13 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders || {} });
     }
 
+    if (!isApiRequest) {
+      return new Response("not found", { status: 404 });
+    }
+
     if (request.method === "GET") {
       if (url.pathname === "/v1/state") {
-        const storedState = await loadState(env);
+        const storedState = await loadState(this.storage, this.env);
         const currentState = normalizeGlobalState(storedState, DEFAULT_GLOBAL_STATE.updated_at);
         return jsonResponse(
           200,
@@ -476,7 +490,7 @@ export default {
       return new Response("not found", { status: 404 });
     }
 
-    if (isApiRequest && !corsHeaders) {
+    if (!corsHeaders) {
       return jsonResponse(403, { error: "Origin not allowed" }, corsHeaders);
     }
 
@@ -489,7 +503,10 @@ export default {
       }
 
       const updatedAt = Date.now();
-      const existingState = normalizeGlobalState(await loadState(env), updatedAt);
+      const existingState = normalizeGlobalState(
+        await loadState(this.storage, this.env),
+        updatedAt
+      );
       const nextState = normalizeGlobalState(
         {
           prompt_sessions: Array.isArray(payload?.prompt_sessions)
@@ -515,7 +532,7 @@ export default {
         },
         updatedAt
       );
-      await writeGlobalState(env, nextState);
+      await writeGlobalState(this.storage, this.env, nextState);
       return jsonResponse(200, nextState, corsHeaders, NO_CACHE_HEADERS);
     }
 
@@ -532,14 +549,7 @@ export default {
         return jsonResponse(400, { error: "Words are required" }, corsHeaders);
       }
 
-      // Do not overwrite global_state on new clients; always load+mutate.
-      const state = await loadState(env);
-      console.log(
-        "loaded presses",
-        Array.isArray(state.send_timestamps) ? state.send_timestamps.length : 0,
-        "loaded fidelity",
-        state.fidelity
-      );
+      const state = await loadState(this.storage, this.env);
       const now = Date.now();
       state.send_timestamps = normalizeSendTimestamps(state.send_timestamps);
       state.send_timestamps.push(now);
@@ -551,7 +561,6 @@ export default {
         0,
         100
       );
-      console.log("after send presses", prunedLen, "new fidelity", state.fidelity);
 
       const storedSessions = normalizePromptSessions(state.prompt_sessions);
       storedSessions.push(words);
@@ -561,7 +570,7 @@ export default {
       state.prompt = buildPrompt(tokens);
       state.updated_at = now;
 
-      await writeGlobalState(env, state);
+      await writeGlobalState(this.storage, this.env, state);
 
       return jsonResponse(
         200,
@@ -572,7 +581,10 @@ export default {
 
     if (url.pathname === "/v1/prompt/clear") {
       const updatedAt = Date.now();
-      const existingState = normalizeGlobalState(await loadState(env), updatedAt);
+      const existingState = normalizeGlobalState(
+        await loadState(this.storage, this.env),
+        updatedAt
+      );
       const nextState = normalizeGlobalState(
         {
           prompt_sessions: [],
@@ -586,13 +598,16 @@ export default {
         },
         updatedAt
       );
-      await writeGlobalState(env, nextState);
+      await writeGlobalState(this.storage, this.env, nextState);
       return jsonResponse(200, { ok: true }, corsHeaders);
     }
 
     if (url.pathname === "/v1/fidelity") {
       const updatedAt = Date.now();
-      const existingState = normalizeGlobalState(await loadState(env), updatedAt);
+      const existingState = normalizeGlobalState(
+        await loadState(this.storage, this.env),
+        updatedAt
+      );
       const nextState = normalizeGlobalState(
         {
           prompt_sessions: existingState.prompt_sessions,
@@ -606,7 +621,7 @@ export default {
         },
         updatedAt
       );
-      await writeGlobalState(env, nextState);
+      await writeGlobalState(this.storage, this.env, nextState);
       return jsonResponse(200, nextState, corsHeaders, NO_CACHE_HEADERS);
     }
 
@@ -621,7 +636,10 @@ export default {
       return jsonResponse(400, { error: "Invalid JSON" }, corsHeaders);
     }
 
-    const existingState = normalizeGlobalState(await loadState(env), Date.now());
+    const existingState = normalizeGlobalState(
+      await loadState(this.storage, this.env),
+      Date.now()
+    );
     const prompt = typeof existingState?.prompt === "string" ? existingState.prompt.trim() : "";
     const size = typeof payload?.size === "string" ? payload.size.trim() : existingState.size;
     const fidelity = Number.isFinite(existingState?.fidelity)
@@ -640,14 +658,14 @@ export default {
       return jsonResponse(400, { error: "Invalid size" }, corsHeaders);
     }
 
-    const model = env.OPENAI_IMAGE_MODEL || "gpt-image-1";
+    const model = this.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
 
     let upstreamResponse;
     try {
       upstreamResponse = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+          Authorization: `Bearer ${this.env.OPENAI_API_KEY}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -694,7 +712,7 @@ export default {
       },
       updatedAt
     );
-    await writeGlobalState(env, nextState);
+    await writeGlobalState(this.storage, this.env, nextState);
 
     return jsonResponse(
       200,
@@ -702,5 +720,23 @@ export default {
       corsHeaders,
       NO_CACHE_HEADERS
     );
+  }
+}
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/health" && request.method === "GET") {
+      return new Response("ok", { status: 200 });
+    }
+
+    if (url.pathname.startsWith("/v1/")) {
+      const id = env.GLOBAL_STATE_DO.idFromName("global");
+      const stub = env.GLOBAL_STATE_DO.get(id);
+      return stub.fetch(request);
+    }
+
+    return new Response("not found", { status: 404 });
   }
 };

@@ -2,6 +2,7 @@ const MAX_PROMPT_LENGTH = 4000;
 const ALLOWED_SIZES = new Set(["512x512", "1024x1024", "1024x1536", "1536x1024"]);
 const MAX_WORD_ENTRIES = 50;
 const GLOBAL_STATE_KEY = "global_state";
+const SEND_TIMESTAMPS_KEY = "send_timestamps";
 const ALLOWED = new Set(["https://www.813wuwei.com", "https://813wuwei.com"]);
 // "Failed to fetch" in browser often means CORS preflight blocked; OPTIONS must return 204 with CORS headers.
 function corsHeaders(req) {
@@ -18,14 +19,15 @@ function corsHeaders(req) {
 // prompt_sessions aggregates prompt inputs only; using it for shared image state
 // caused desync because it never stored the canonical image payload.
 const DEFAULT_FIDELITY = 0;
+// Storing base64 image blobs in Durable Object SQLite triggered SQLITE_TOOBIG,
+// so the DO now stores only small metadata and image keys/URLs.
 const DEFAULT_GLOBAL_STATE = {
   prompt_sessions: [],
   prompt: "",
-  send_timestamps: [],
   fidelity: DEFAULT_FIDELITY,
   size: "1024x1024",
+  image_key: null,
   image_url: null,
-  image_data_url: null,
   updated_at: 0
 };
 // NOTE: Do not store global image state in-memory; per-worker isolates reset often
@@ -273,15 +275,18 @@ function normalizeImageValue(value) {
   return trimmed.length ? trimmed : null;
 }
 
+function normalizeImageKey(value) {
+  return normalizeImageValue(value);
+}
+
 function normalizeGlobalState(state, fallbackUpdatedAt = 0) {
   return {
     prompt_sessions: normalizePromptSessions(state?.prompt_sessions),
     prompt: typeof state?.prompt === "string" ? state.prompt : "",
-    send_timestamps: normalizeSendTimestamps(state?.send_timestamps),
     fidelity: normalizeFidelity(state?.fidelity),
     size: typeof state?.size === "string" ? state.size : DEFAULT_GLOBAL_STATE.size,
+    image_key: normalizeImageKey(state?.image_key),
     image_url: normalizeImageValue(state?.image_url),
-    image_data_url: normalizeImageValue(state?.image_data_url),
     updated_at: Number.isFinite(state?.updated_at) ? state.updated_at : fallbackUpdatedAt
   };
 }
@@ -301,15 +306,22 @@ async function loadState(storage, env) {
   }
   const defaults = {
     prompt_sessions: [],
-    send_timestamps: [],
     prompt: "",
     fidelity: 0,
     size: "1024x1024",
+    image_key: null,
     image_url: null,
-    image_data_url: null,
     updated_at: 0
   };
   return Object.assign({}, defaults, stored || {});
+}
+
+async function loadSendTimestamps(storage) {
+  if (!storage?.get) {
+    return [];
+  }
+  const stored = await storage.get(SEND_TIMESTAMPS_KEY);
+  return normalizeSendTimestamps(stored);
 }
 
 async function writeGlobalState(storage, env, state) {
@@ -322,6 +334,13 @@ async function writeGlobalState(storage, env, state) {
     const value = JSON.stringify(normalized);
     await env.IMAGE_STATE_KV.put(GLOBAL_STATE_KEY, value);
   }
+}
+
+async function writeSendTimestamps(storage, timestamps) {
+  if (!storage?.put) {
+    return;
+  }
+  await storage.put(SEND_TIMESTAMPS_KEY, normalizeSendTimestamps(timestamps));
 }
 
 function normalizeTokens(words) {
@@ -505,19 +524,18 @@ export class GlobalStateDO {
               ? payload.prompt_sessions
               : existingState.prompt_sessions,
             prompt: typeof payload?.prompt === "string" ? payload.prompt.trim() : existingState.prompt,
-            image_data_url:
-              payload?.image_data_url === null
+            image_key:
+              payload?.image_key === null
                 ? null
-                : typeof payload?.image_data_url === "string"
-                  ? payload.image_data_url
-                  : existingState.image_data_url,
+                : typeof payload?.image_key === "string"
+                  ? payload.image_key
+                  : existingState.image_key,
             image_url:
               payload?.image_url === null
                 ? null
                 : typeof payload?.image_url === "string"
                   ? payload.image_url
                   : existingState.image_url,
-            send_timestamps: existingState.send_timestamps,
             fidelity: existingState.fidelity,
             size: typeof payload?.size === "string" ? payload.size.trim() : existingState.size,
             updated_at: updatedAt
@@ -543,12 +561,12 @@ export class GlobalStateDO {
 
         const state = await loadState(this.storage, this.env);
         const now = Date.now();
-        state.send_timestamps = normalizeSendTimestamps(state.send_timestamps);
-        state.send_timestamps.push(now);
-        state.send_timestamps = state.send_timestamps.filter(
+        const sendTimestamps = await loadSendTimestamps(this.storage);
+        sendTimestamps.push(now);
+        const prunedTimestamps = normalizeSendTimestamps(sendTimestamps).filter(
           (timestamp) => timestamp >= now - 30000
         );
-        const prunedLen = state.send_timestamps.length;
+        const prunedLen = prunedTimestamps.length;
         const TARGET = 100;
         state.fidelity = clamp(
           Math.ceil((prunedLen / TARGET) * 100),
@@ -565,6 +583,7 @@ export class GlobalStateDO {
         state.updated_at = now;
 
         await writeGlobalState(this.storage, this.env, state);
+        await writeSendTimestamps(this.storage, prunedTimestamps);
 
         return jsonResponse(
           200,
@@ -583,11 +602,10 @@ export class GlobalStateDO {
           {
             prompt_sessions: [],
             prompt: "",
-            send_timestamps: existingState.send_timestamps,
             fidelity: existingState.fidelity,
             size: existingState.size,
+            image_key: existingState.image_key,
             image_url: existingState.image_url,
-            image_data_url: existingState.image_data_url,
             updated_at: updatedAt
           },
           updatedAt
@@ -606,11 +624,10 @@ export class GlobalStateDO {
           {
             prompt_sessions: existingState.prompt_sessions,
             prompt: existingState.prompt,
-            send_timestamps: existingState.send_timestamps,
             fidelity: existingState.fidelity,
             size: existingState.size,
+            image_key: existingState.image_key,
             image_url: existingState.image_url,
-            image_data_url: existingState.image_data_url,
             updated_at: updatedAt
           },
           updatedAt
@@ -691,17 +708,26 @@ export class GlobalStateDO {
         return jsonResponse(502, { error: "OpenAI response missing image" }, corsHeaderSource);
       }
 
-      const imageDataUrl = `data:image/png;base64,${b64}`;
+      if (!this.env.IMG_BUCKET) {
+        return jsonResponse(500, { error: "Image bucket not configured" }, corsHeaderSource);
+      }
+
+      const imageBytes = Uint8Array.from(atob(b64), (char) => char.charCodeAt(0));
+      const key = `images/${Date.now()}-${crypto.randomUUID()}.png`;
+      await this.env.IMG_BUCKET.put(key, imageBytes, {
+        httpMetadata: { contentType: "image/png" }
+      });
+
+      const imageUrl = `${url.origin}/v1/image/${encodeURIComponent(key)}`;
       const updatedAt = Date.now();
       const nextState = normalizeGlobalState(
         {
           prompt_sessions: existingState.prompt_sessions,
           prompt,
-          send_timestamps: existingState.send_timestamps,
           fidelity,
           size,
-          image_url: null,
-          image_data_url: imageDataUrl,
+          image_key: key,
+          image_url: imageUrl,
           updated_at: updatedAt
         },
         updatedAt
@@ -735,6 +761,24 @@ export default {
 
     if (url.pathname === "/health" && request.method === "GET") {
       return new Response("ok", { status: 200 });
+    }
+
+    if (url.pathname.startsWith("/v1/image/") && request.method === "GET") {
+      if (!env.IMG_BUCKET) {
+        return jsonResponse(500, { error: "Image bucket not configured" }, corsHeaderSource);
+      }
+      const key = decodeURIComponent(url.pathname.slice("/v1/image/".length));
+      if (!key) {
+        return new Response("not found", { status: 404, headers: corsHeaderSource });
+      }
+      const object = await env.IMG_BUCKET.get(key);
+      if (!object) {
+        return new Response("not found", { status: 404, headers: corsHeaderSource });
+      }
+      const headers = new Headers(corsHeaderSource);
+      object.writeHttpMetadata(headers);
+      headers.set("Cache-Control", "public, max-age=31536000, immutable");
+      return new Response(object.body, { status: 200, headers });
     }
 
     if (url.pathname.startsWith("/v1/")) {

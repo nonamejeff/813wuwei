@@ -1,21 +1,4 @@
 {
-<<<<<<< HEAD
-	"$schema": "./node_modules/wrangler/config-schema.json",
-	"name": "img-gen-backend",
-	"main": "src/index.js",
-	"compatibility_date": "2026-01-14",
-	"vars": {
-		"ALLOWED_ORIGINS": "https://www.813wuwei.com,https://813wuwei.com",
-		"OPENAI_IMAGE_MODEL": "gpt-image-1"
-	},
-	"kv_namespaces": [
-		{
-			"binding": "IMAGE_STATE_KV",
-			"id": "45df9960641a4224ab06c8c74aebcd51"
-		}
-	]
-}
-=======
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "img-gen-backend",
   "main": "src/index.js",
@@ -31,4 +14,3 @@
     }
   ]
 }
->>>>>>> 20de8fedd635a9cf9e783e3c7fe3ba53e76ddd60

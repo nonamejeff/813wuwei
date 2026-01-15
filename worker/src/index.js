@@ -733,8 +733,7 @@ export default {
 
     if (url.pathname.startsWith("/v1/")) {
       const id = env.GLOBAL_STATE_DO.idFromName("global");
-      const stub = env.GLOBAL_STATE_DO.get(id);
-      return stub.fetch(request);
+      return env.GLOBAL_STATE_DO.get(id).fetch(request);
     }
 
     return new Response("not found", { status: 404 });

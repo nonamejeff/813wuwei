@@ -11,7 +11,58 @@ ${NON_LITERAL_RULES}`;
 const DEFAULT_TARGET_SIZE = 512;
 const DEFAULT_IMAGE_SIZE = "1536x1024";
 const STATE_POLL_MS = 5000;
-const WORKER_URL = "https://img-gen-backend.nnjeff-prod.workers.dev";
+const DEFAULT_WORKER_URL = "https://img-gen-backend.813wuwei.com";
+const LEGACY_WORKER_URL = "https://img-gen-backend.nnjeff-prod.workers.dev";
+const WORKER_URL_PARAM = "workerUrl";
+
+function normalizeWorkerUrl(url) {
+  if (typeof url !== "string" || !url.trim()) {
+    return "";
+  }
+  return url.trim().replace(/\/+$/, "");
+}
+
+function resolveWorkerUrls() {
+  const params = new URLSearchParams(window.location.search);
+  const override = normalizeWorkerUrl(params.get(WORKER_URL_PARAM));
+  const meta = normalizeWorkerUrl(
+    document.querySelector('meta[name="img-gen-worker-url"]')?.content
+  );
+  const primary = override || meta || DEFAULT_WORKER_URL;
+  const urls = [primary];
+  if (LEGACY_WORKER_URL !== primary) {
+    urls.push(LEGACY_WORKER_URL);
+  }
+  return urls;
+}
+
+function shouldRetryWorkerResponse(response) {
+  if (!response) {
+    return true;
+  }
+  return response.status === 403 || response.status === 404 || response.status >= 500;
+}
+
+const WORKER_URLS = resolveWorkerUrls();
+
+async function fetchFromWorker(path, options) {
+  let lastError;
+  for (const baseUrl of WORKER_URLS) {
+    try {
+      const response = await fetch(`${baseUrl}${path}`, options);
+      if (!shouldRetryWorkerResponse(response) || baseUrl === WORKER_URLS.at(-1)) {
+        return response;
+      }
+      lastError = response;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (lastError instanceof Response) {
+    return lastError;
+  }
+  throw lastError;
+}
 
 const BOOTSTRAP_TOKENS = [
   "heat",
@@ -1157,7 +1208,7 @@ function applyStateToUI(state) {
 
 async function syncSharedState() {
   try {
-    const response = await fetch(`${WORKER_URL}/v1/state`, {
+    const response = await fetchFromWorker("/v1/state", {
       method: "GET",
       cache: "no-store"
     });
@@ -1180,7 +1231,7 @@ async function hydrateFidelityFromBackend() {
     return;
   }
   try {
-    const response = await fetch(`${WORKER_URL}/v1/state`, {
+    const response = await fetchFromWorker("/v1/state", {
       method: "GET",
       cache: "no-store"
     });
@@ -1234,7 +1285,7 @@ async function sendWords() {
   }
 
   try {
-    const response = await fetch(`${WORKER_URL}/v1/prompt/add`, {
+    const response = await fetchFromWorker("/v1/prompt/add", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -1275,7 +1326,7 @@ async function generateImage() {
   setImageStatus("Generating image…");
 
   try {
-    const response = await fetch(`${WORKER_URL}/v1/img-gen`, {
+    const response = await fetchFromWorker("/v1/img-gen", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

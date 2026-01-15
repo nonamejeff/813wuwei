@@ -1071,10 +1071,13 @@ function applySharedImage(imageDataUrl, updatedAt) {
 async function syncSharedState() {
   try {
     const response = await fetch(`${WORKER_URL}/v1/state`, {
-      method: "GET"
+      method: "GET",
+      cache: "no-store"
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
+      const message = data?.error || "Image sync failed.";
+      setImageStatus(message);
       return;
     }
     if (typeof data?.prompt === "string" && data.prompt.trim()) {
@@ -1082,8 +1085,10 @@ async function syncSharedState() {
       lastNegative = NEGATIVE_PROMPT;
       updatePromptDisplay();
     }
-    if (typeof data?.updated_at === "number") {
-      applySharedImage(data.image_data_url, data.updated_at);
+    const imageDataUrl = typeof data?.image_data_url === "string" ? data.image_data_url : "";
+    const updatedAt = Number.isFinite(data?.updated_at) ? data.updated_at : Date.now();
+    if (imageDataUrl) {
+      applySharedImage(imageDataUrl, updatedAt);
     }
   } catch (error) {
     // Ignore polling failures; retry on the next tick.

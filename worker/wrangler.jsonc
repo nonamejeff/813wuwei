@@ -13,6 +13,12 @@
       "id": "45df9960641a4224ab06c8c74aebcd51"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "IMG_BUCKET",
+      "bucket_name": "img-gen-assets"
+    }
+  ],
   "durable_objects": {
     "bindings": [
       {

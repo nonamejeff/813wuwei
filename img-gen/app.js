@@ -1125,7 +1125,6 @@ function applySharedImage(imageUrl) {
 function normalizeSharedState(data) {
   return {
     prompt: typeof data?.prompt === "string" ? data.prompt : "",
-    image_data_url: typeof data?.image_data_url === "string" ? data.image_data_url : "",
     image_url: typeof data?.image_url === "string" ? data.image_url : "",
     updated_at: Number.isFinite(data?.updated_at) ? data.updated_at : 0,
     fidelity: Number.isFinite(data?.fidelity) ? data.fidelity : null,
@@ -1140,7 +1139,7 @@ function applyStateToUI(state) {
   }
   lastSeenUpdatedAt = Math.max(lastSeenUpdatedAt, updatedAt);
 
-  const imageUrl = state?.image_data_url || state?.image_url || "";
+  const imageUrl = state?.image_url || "";
   applySharedImage(imageUrl);
   if (typeof state?.prompt === "string") {
     lastPrompt = state.prompt.trim();

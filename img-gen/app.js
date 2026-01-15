@@ -10,6 +10,7 @@ ${NON_LITERAL_RULES}`;
 
 const DEFAULT_TARGET_SIZE = 512;
 const DEFAULT_IMAGE_SIZE = "1536x1024";
+const STATE_POLL_MS = 4000;
 const WORKER_URL = "https://img-gen-backend.nnjeff-prod.workers.dev";
 
 const BOOTSTRAP_TOKENS = [
@@ -367,6 +368,8 @@ let targetTexture = null;
 let clusters = [];
 let lastPrompt = "";
 let lastNegative = NEGATIVE_PROMPT;
+let lastSharedUpdate = 0;
+let lastSharedImageUrl = null;
 let sendTimes = [];
 let emaRate = 0;
 let fidelity = 0.05;
@@ -1039,6 +1042,54 @@ function setImageStatus(message) {
   imageStatus.textContent = message || "—";
 }
 
+function applySharedImage(imageDataUrl, updatedAt) {
+  if (!imageDataUrl) {
+    return;
+  }
+  if (updatedAt && updatedAt <= lastSharedUpdate) {
+    return;
+  }
+  if (imageDataUrl === lastSharedImageUrl) {
+    lastSharedUpdate = Math.max(lastSharedUpdate, updatedAt || 0);
+    return;
+  }
+
+  lastSharedUpdate = updatedAt || Date.now();
+  lastSharedImageUrl = imageDataUrl;
+
+  if (generatedImage) {
+    generatedImage.src = imageDataUrl;
+  }
+  const image = new Image();
+  image.onload = () => {
+    drawTargetToCanvas(image);
+  };
+  image.src = imageDataUrl;
+  setImageStatus("Image synced.");
+}
+
+async function syncSharedState() {
+  try {
+    const response = await fetch(`${WORKER_URL}/v1/state`, {
+      method: "GET"
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return;
+    }
+    if (typeof data?.prompt === "string" && data.prompt.trim()) {
+      lastPrompt = data.prompt.trim();
+      lastNegative = NEGATIVE_PROMPT;
+      updatePromptDisplay();
+    }
+    if (typeof data?.updated_at === "number") {
+      applySharedImage(data.image_data_url, data.updated_at);
+    }
+  } catch (error) {
+    // Ignore polling failures; retry on the next tick.
+  }
+}
+
 async function sendWords() {
   const words = userWordsInput ? userWordsInput.value.trim() : "";
 
@@ -1063,7 +1114,6 @@ async function sendWords() {
   try {
     const response = await fetch(`${WORKER_URL}/v1/prompt/add`, {
       method: "POST",
-      credentials: "include",
       headers: {
         "Content-Type": "application/json"
       },
@@ -1123,14 +1173,7 @@ async function generateImage() {
     }
 
     if (data?.image_data_url) {
-      if (generatedImage) {
-        generatedImage.src = data.image_data_url;
-      }
-      const image = new Image();
-      image.onload = () => {
-        drawTargetToCanvas(image);
-      };
-      image.src = data.image_data_url;
+      applySharedImage(data.image_data_url, Date.now());
     }
     setImageStatus("Image ready.");
   } catch (error) {
@@ -1247,5 +1290,8 @@ generatePrompt();
 
 updateRateAndFidelity();
 setInterval(updateRateAndFidelity, SEND_RATE_TICK_MS);
+
+syncSharedState();
+setInterval(syncSharedState, STATE_POLL_MS);
 
 requestAnimationFrame(renderFrame);

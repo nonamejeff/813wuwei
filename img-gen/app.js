@@ -379,6 +379,7 @@ let targetFidelity = 0.05;
 let sensitivity01 = 0.5;
 let isEditingPrompt = false;
 let isAdjustingFidelity = false;
+let isProgrammaticFidelityUpdate = false;
 let hasAppliedBackendFidelity = false;
 let hasAppliedUserFidelity = false;
 let lastSyncErrorMessage = "";
@@ -424,12 +425,16 @@ if (userWordsInput) {
 
 if (fidelitySlider) {
   const handleFidelityInput = (event) => {
+    if (isProgrammaticFidelityUpdate) {
+      return;
+    }
     const rawValue = Number.parseFloat(event.target.value);
     if (!Number.isFinite(rawValue)) {
       return;
     }
     setFidelityUI(rawValue, "slider");
     localStorage.setItem(FIDELITY_STORAGE_KEY, String(rawValue));
+    updateBackendFidelity(rawValue);
   };
   fidelitySlider.addEventListener("pointerdown", () => {
     isAdjustingFidelity = true;
@@ -679,6 +684,28 @@ function updateFidelityReadouts() {
   }
 }
 
+function dispatchFidelityEvents() {
+  if (!fidelitySlider) {
+    return;
+  }
+  isProgrammaticFidelityUpdate = true;
+  fidelitySlider.dispatchEvent(new Event("input", { bubbles: true }));
+  fidelitySlider.dispatchEvent(new Event("change", { bubbles: true }));
+  isProgrammaticFidelityUpdate = false;
+}
+
+function setFidelitySliderValue(value) {
+  if (!fidelitySlider || isAdjustingFidelity) {
+    return;
+  }
+  const nextValue = String(value);
+  const didChange = fidelitySlider.value !== nextValue;
+  fidelitySlider.value = nextValue;
+  if (didChange) {
+    dispatchFidelityEvents();
+  }
+}
+
 function setFidelityUI(value, source) {
   const normalized = normalizeFidelityValue(value);
   if (!Number.isFinite(normalized)) {
@@ -687,8 +714,8 @@ function setFidelityUI(value, source) {
   const clamped = clamp(normalized, FIDELITY_MIN, FIDELITY_MAX);
   targetFidelity = clamped;
   fidelity = clamped;
-  if (fidelitySlider && !isAdjustingFidelity) {
-    fidelitySlider.value = String(denormalizeFidelityValue(clamped));
+  if (source !== "slider") {
+    setFidelitySliderValue(denormalizeFidelityValue(clamped));
   }
   updateFidelityReadouts();
   if (source === "backend") {
@@ -698,11 +725,22 @@ function setFidelityUI(value, source) {
   }
 }
 
-function getFidelityPayloadValue() {
-  if (!Number.isFinite(fidelity)) {
-    return fidelity;
+async function updateBackendFidelity(rawValue) {
+  try {
+    const response = await fetch(`${WORKER_URL}/v1/fidelity`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ fidelity: rawValue })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data?.error || "Failed to sync fidelity.");
+    }
+  } catch (error) {
+    setSyncError(error?.message || "Failed to sync fidelity.");
   }
-  return denormalizeFidelityValue(fidelity);
 }
 
 function recordSendEvent() {
@@ -725,9 +763,7 @@ function updateRateAndFidelity() {
     targetFidelity = FIDELITY_MIN + (FIDELITY_MAX - FIDELITY_MIN) * curved;
     fidelity = lerp(fidelity, targetFidelity, FIDELITY_ALPHA);
 
-    if (fidelitySlider && !isAdjustingFidelity) {
-      fidelitySlider.value = String(denormalizeFidelityValue(fidelity));
-    }
+    setFidelitySliderValue(denormalizeFidelityValue(fidelity));
   }
 
   if (devEnabled) {
@@ -1161,24 +1197,31 @@ function setSyncError(message) {
   setImageStatus(nextMessage);
 }
 
-function applySharedImage(imageDataUrl) {
-  if (!imageDataUrl) {
+function applySharedImage(imageUrl) {
+  const nextUrl = typeof imageUrl === "string" ? imageUrl : "";
+  if (!nextUrl) {
+    if (lastSharedImageUrl) {
+      lastSharedImageUrl = null;
+      if (generatedImage) {
+        generatedImage.removeAttribute("src");
+      }
+    }
     return;
   }
-  if (imageDataUrl === lastSharedImageUrl) {
+  if (nextUrl === lastSharedImageUrl) {
     return;
   }
 
-  lastSharedImageUrl = imageDataUrl;
+  lastSharedImageUrl = nextUrl;
 
   if (generatedImage) {
-    generatedImage.src = imageDataUrl;
+    generatedImage.src = nextUrl;
   }
   const image = new Image();
   image.onload = () => {
     drawTargetToCanvas(image);
   };
-  image.src = imageDataUrl;
+  image.src = nextUrl;
   setImageStatus("Image synced.");
 }
 
@@ -1186,6 +1229,7 @@ function normalizeSharedState(data) {
   return {
     prompt: typeof data?.prompt === "string" ? data.prompt : "",
     image_data_url: typeof data?.image_data_url === "string" ? data.image_data_url : "",
+    image_url: typeof data?.image_url === "string" ? data.image_url : "",
     updated_at: Number.isFinite(data?.updated_at) ? data.updated_at : 0,
     fidelity: Number.isFinite(data?.fidelity) ? data.fidelity : null,
     size: typeof data?.size === "string" ? data.size : ""
@@ -1194,22 +1238,17 @@ function normalizeSharedState(data) {
 
 function applyStateToUI(state) {
   const updatedAt = Number.isFinite(state?.updated_at) ? state.updated_at : 0;
-  if (updatedAt <= lastSeenUpdatedAt) {
-    return false;
-  }
-  lastSeenUpdatedAt = updatedAt;
   if (updatedAt >= 0) {
     hasBackendState = true;
   }
+  lastSeenUpdatedAt = Math.max(lastSeenUpdatedAt, updatedAt);
 
-  if (typeof state?.image_data_url === "string" && state.image_data_url) {
-    applySharedImage(state.image_data_url);
-  }
+  const imageUrl = state?.image_data_url || state?.image_url || "";
+  applySharedImage(imageUrl);
   if (typeof state?.prompt === "string") {
     lastPrompt = state.prompt.trim();
     lastNegative = NEGATIVE_PROMPT;
-    const isPromptFocused = document.activeElement === promptOut;
-    updatePromptDisplay({ updatePromptOut: !isPromptFocused });
+    updatePromptDisplay({ updatePromptOut: true });
   }
   if (!isAdjustingFidelity && Number.isFinite(state?.fidelity)) {
     setFidelityUI(state.fidelity, "backend");
@@ -1233,9 +1272,7 @@ async function syncSharedState() {
       return;
     }
     const state = normalizeSharedState(data);
-    if (Number.isFinite(state.updated_at) && state.updated_at > lastSeenUpdatedAt) {
-      applyStateToUI(state);
-    }
+    applyStateToUI(state);
     lastSyncErrorMessage = "";
   } catch (error) {
     setSyncError(error?.message || "Image sync failed.");
@@ -1255,7 +1292,7 @@ async function hydrateFidelityFromBackend() {
     if (response.ok) {
       const state = normalizeSharedState(data);
       if (Number.isFinite(state?.fidelity)) {
-        setFidelityUI(state.fidelity, "backend");
+        applyStateToUI(state);
         return;
       }
     }
@@ -1311,7 +1348,7 @@ async function sendWords() {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ words, fidelity: getFidelityPayloadValue() })
+      body: JSON.stringify({ words })
     });
 
     const data = await response.json().catch(() => ({}));
@@ -1357,7 +1394,7 @@ async function generateImage() {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ prompt: promptText, size, fidelity: getFidelityPayloadValue() })
+      body: JSON.stringify({ size })
     });
 
     const data = await response.json().catch(() => ({}));

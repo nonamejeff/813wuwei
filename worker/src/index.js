@@ -27,7 +27,6 @@ const DEFAULT_GLOBAL_STATE = {
   fidelity: DEFAULT_FIDELITY,
   size: "1024x1024",
   image_key: null,
-  image_url: null,
   updated_at: 0
 };
 // NOTE: Do not store global image state in-memory; per-worker isolates reset often
@@ -286,7 +285,6 @@ function normalizeGlobalState(state, fallbackUpdatedAt = 0) {
     fidelity: normalizeFidelity(state?.fidelity),
     size: typeof state?.size === "string" ? state.size : DEFAULT_GLOBAL_STATE.size,
     image_key: normalizeImageKey(state?.image_key),
-    image_url: normalizeImageValue(state?.image_url),
     updated_at: Number.isFinite(state?.updated_at) ? state.updated_at : fallbackUpdatedAt
   };
 }
@@ -310,7 +308,6 @@ async function loadState(storage, env) {
     fidelity: 0,
     size: "1024x1024",
     image_key: null,
-    image_url: null,
     updated_at: 0
   };
   return Object.assign({}, defaults, stored || {});
@@ -466,6 +463,17 @@ function buildPrompt(tokens) {
   return `${STYLE_SPINE}\n${moodLine}\n${NON_LITERAL_RULES}`.slice(0, MAX_PROMPT_LENGTH);
 }
 
+function buildStateResponse(state, origin) {
+  const normalized = normalizeGlobalState(state, state?.updated_at ?? 0);
+  const imageUrl = normalized.image_key
+    ? `${origin}/v1/image/${encodeURIComponent(normalized.image_key)}`
+    : null;
+  return {
+    ...normalized,
+    image_url: imageUrl
+  };
+}
+
 export class GlobalStateDO {
   constructor(state, env) {
     this.state = state;
@@ -490,7 +498,7 @@ export class GlobalStateDO {
       if (request.method === "GET") {
         if (url.pathname === "/v1/state") {
           const storedState = await loadState(this.storage, this.env);
-          const currentState = normalizeGlobalState(storedState, DEFAULT_GLOBAL_STATE.updated_at);
+          const currentState = buildStateResponse(storedState, url.origin);
           return jsonResponse(
             200,
             currentState,
@@ -530,12 +538,6 @@ export class GlobalStateDO {
                 : typeof payload?.image_key === "string"
                   ? payload.image_key
                   : existingState.image_key,
-            image_url:
-              payload?.image_url === null
-                ? null
-                : typeof payload?.image_url === "string"
-                  ? payload.image_url
-                  : existingState.image_url,
             fidelity: existingState.fidelity,
             size: typeof payload?.size === "string" ? payload.size.trim() : existingState.size,
             updated_at: updatedAt
@@ -543,7 +545,12 @@ export class GlobalStateDO {
           updatedAt
         );
         await writeGlobalState(this.storage, this.env, nextState);
-        return jsonResponse(200, nextState, corsHeaderSource, NO_CACHE_HEADERS);
+        return jsonResponse(
+          200,
+          buildStateResponse(nextState, url.origin),
+          corsHeaderSource,
+          NO_CACHE_HEADERS
+        );
       }
 
       if (url.pathname === "/v1/prompt/add") {
@@ -605,7 +612,6 @@ export class GlobalStateDO {
             fidelity: existingState.fidelity,
             size: existingState.size,
             image_key: existingState.image_key,
-            image_url: existingState.image_url,
             updated_at: updatedAt
           },
           updatedAt
@@ -627,13 +633,17 @@ export class GlobalStateDO {
             fidelity: existingState.fidelity,
             size: existingState.size,
             image_key: existingState.image_key,
-            image_url: existingState.image_url,
             updated_at: updatedAt
           },
           updatedAt
         );
         await writeGlobalState(this.storage, this.env, nextState);
-        return jsonResponse(200, nextState, corsHeaderSource, NO_CACHE_HEADERS);
+        return jsonResponse(
+          200,
+          buildStateResponse(nextState, url.origin),
+          corsHeaderSource,
+          NO_CACHE_HEADERS
+        );
       }
 
       if (url.pathname !== "/v1/img-gen") {
@@ -718,7 +728,6 @@ export class GlobalStateDO {
         httpMetadata: { contentType: "image/png" }
       });
 
-      const imageUrl = `${url.origin}/v1/image/${encodeURIComponent(key)}`;
       const updatedAt = Date.now();
       const nextState = normalizeGlobalState(
         {
@@ -727,7 +736,6 @@ export class GlobalStateDO {
           fidelity,
           size,
           image_key: key,
-          image_url: imageUrl,
           updated_at: updatedAt
         },
         updatedAt
@@ -736,7 +744,7 @@ export class GlobalStateDO {
 
       return jsonResponse(
         200,
-        nextState,
+        buildStateResponse(nextState, url.origin),
         corsHeaderSource,
         NO_CACHE_HEADERS
       );

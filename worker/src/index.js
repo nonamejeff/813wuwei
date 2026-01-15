@@ -2,12 +2,18 @@ const MAX_PROMPT_LENGTH = 4000;
 const ALLOWED_SIZES = new Set(["512x512", "1024x1024", "1024x1536", "1536x1024"]);
 const MAX_WORD_ENTRIES = 50;
 const promptSessions = [];
-const sharedImageState = {
-  imageDataUrl: null,
+const GLOBAL_STATE_KEY = "global_state";
+const DEFAULT_GLOBAL_STATE = {
   prompt: "",
-  updatedAt: 0
+  image_data_url: "",
+  updated_at: 0,
+  fidelity: 0.05,
+  size: ""
 };
-let dbInitPromise;
+// NOTE: Do not store global image state in-memory; per-worker isolates reset often
+// and are not shared across regions, so memory state diverges between clients.
+// KV persistence is now used for global image state. Deploy after changes:
+// cd worker && npm run deploy
 const STYLE_SPINE =
   "abstract, non-figurative, atmospheric field texture, wabi-sabi restraint, imperfect continuity, subdued palette, soft film grain, natural diffusion, quiet contrast, no subjects, no objects, no readable symbols";
 const NON_LITERAL_RULES =
@@ -211,7 +217,6 @@ function buildCorsHeaders(origin, allowedOrigins) {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Credentials": "true",
     Vary: "Origin"
   };
 }
@@ -225,75 +230,29 @@ function jsonResponse(status, body, corsHeaders, extraHeaders) {
   return new Response(JSON.stringify(body), { status, headers });
 }
 
-function updateSharedImageState(prompt, imageDataUrl) {
-  if (!imageDataUrl) {
-    return null;
-  }
-  const nextState = {
-    imageDataUrl,
-    prompt: prompt || "",
-    updatedAt: Date.now()
+function normalizeGlobalState(state, fallbackUpdatedAt = 0) {
+  return {
+    prompt: typeof state?.prompt === "string" ? state.prompt : "",
+    image_data_url: typeof state?.image_data_url === "string" ? state.image_data_url : "",
+    updated_at: Number.isFinite(state?.updated_at) ? state.updated_at : fallbackUpdatedAt,
+    fidelity: Number.isFinite(state?.fidelity) ? state.fidelity : DEFAULT_GLOBAL_STATE.fidelity,
+    size: typeof state?.size === "string" ? state.size : ""
   };
-  sharedImageState.imageDataUrl = nextState.imageDataUrl;
-  sharedImageState.prompt = nextState.prompt;
-  sharedImageState.updatedAt = nextState.updatedAt;
-  return nextState;
 }
 
-function hasStateDatabase(env) {
-  return Boolean(env?.IMAGE_STATE_DB?.prepare);
+async function loadGlobalState(env) {
+  if (!env?.IMAGE_STATE_KV?.get) {
+    return { ...DEFAULT_GLOBAL_STATE };
+  }
+  const stored = await env.IMAGE_STATE_KV.get(GLOBAL_STATE_KEY, { type: "json" });
+  return normalizeGlobalState(stored, DEFAULT_GLOBAL_STATE.updated_at);
 }
 
-async function ensureStateTable(env) {
-  if (!hasStateDatabase(env)) {
-    return false;
-  }
-  if (!dbInitPromise) {
-    dbInitPromise = env.IMAGE_STATE_DB.prepare(
-      "CREATE TABLE IF NOT EXISTS image_state (id INTEGER PRIMARY KEY, image_data_url TEXT, prompt TEXT, updated_at INTEGER)"
-    )
-      .run()
-      .then(() => true)
-      .catch(() => false);
-  }
-  return dbInitPromise;
-}
-
-async function loadSharedImageState(env) {
-  if (!(await ensureStateTable(env))) {
-    return sharedImageState;
-  }
-  try {
-    const result = await env.IMAGE_STATE_DB.prepare(
-      "SELECT image_data_url, prompt, updated_at FROM image_state WHERE id = 1"
-    ).first();
-    if (result?.image_data_url) {
-      sharedImageState.imageDataUrl = result.image_data_url;
-      sharedImageState.prompt = result.prompt || "";
-      sharedImageState.updatedAt = result.updated_at || 0;
-    }
-  } catch (error) {
-    return sharedImageState;
-  }
-  return sharedImageState;
-}
-
-async function persistSharedImageState(env, nextState) {
-  if (!nextState) {
+async function persistGlobalState(env, nextState) {
+  if (!env?.IMAGE_STATE_KV?.put || !nextState) {
     return;
   }
-  if (!(await ensureStateTable(env))) {
-    return;
-  }
-  try {
-    await env.IMAGE_STATE_DB.prepare(
-      "INSERT INTO image_state (id, image_data_url, prompt, updated_at) VALUES (1, ?1, ?2, ?3) ON CONFLICT(id) DO UPDATE SET image_data_url = excluded.image_data_url, prompt = excluded.prompt, updated_at = excluded.updated_at"
-    )
-      .bind(nextState.imageDataUrl, nextState.prompt, nextState.updatedAt)
-      .run();
-  } catch (error) {
-    return;
-  }
+  await env.IMAGE_STATE_KV.put(GLOBAL_STATE_KEY, JSON.stringify(nextState));
 }
 
 function normalizeTokens(words) {
@@ -427,28 +386,25 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
+    const isApiRequest = url.pathname.startsWith("/v1/");
     const origin = request.headers.get("Origin");
     const allowedOrigins = parseAllowedOrigins(env.ALLOWED_ORIGINS);
-    const corsHeaders = buildCorsHeaders(origin, allowedOrigins);
+    const corsHeaders = isApiRequest ? buildCorsHeaders(origin, allowedOrigins) : null;
 
-    if (origin && !corsHeaders) {
+    if (isApiRequest && origin && !corsHeaders) {
       return jsonResponse(403, { error: "Origin not allowed" });
     }
 
-    if (request.method === "OPTIONS") {
+    if (isApiRequest && request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders || {} });
     }
 
     if (request.method === "GET") {
       if (url.pathname === "/v1/state") {
-        const currentState = await loadSharedImageState(env);
+        const currentState = await loadGlobalState(env);
         return jsonResponse(
           200,
-          {
-            image_data_url: currentState.imageDataUrl,
-            prompt: currentState.prompt,
-            updated_at: currentState.updatedAt
-          },
+          currentState,
           corsHeaders,
           { "Cache-Control": "no-store" }
         );
@@ -460,8 +416,34 @@ export default {
       return new Response("not found", { status: 404 });
     }
 
-    if (!corsHeaders) {
+    if (isApiRequest && !corsHeaders) {
       return jsonResponse(403, { error: "Origin not allowed" }, corsHeaders);
+    }
+
+    if (url.pathname === "/v1/state") {
+      let payload;
+      try {
+        payload = await request.json();
+      } catch (error) {
+        return jsonResponse(400, { error: "Invalid JSON" }, corsHeaders);
+      }
+
+      const updatedAt = Date.now();
+      const nextState = normalizeGlobalState(
+        {
+          prompt: typeof payload?.prompt === "string" ? payload.prompt.trim() : "",
+          image_data_url:
+            typeof payload?.image_data_url === "string" ? payload.image_data_url : "",
+          fidelity: Number.isFinite(payload?.fidelity)
+            ? payload.fidelity
+            : DEFAULT_GLOBAL_STATE.fidelity,
+          size: typeof payload?.size === "string" ? payload.size.trim() : "",
+          updated_at: updatedAt
+        },
+        updatedAt
+      );
+      await persistGlobalState(env, nextState);
+      return jsonResponse(200, nextState, corsHeaders);
     }
 
     if (url.pathname === "/v1/prompt/add") {
@@ -509,6 +491,9 @@ export default {
 
     const prompt = typeof payload?.prompt === "string" ? payload.prompt.trim() : "";
     const size = typeof payload?.size === "string" ? payload.size.trim() : "";
+    const fidelity = Number.isFinite(payload?.fidelity)
+      ? payload.fidelity
+      : DEFAULT_GLOBAL_STATE.fidelity;
 
     if (!prompt) {
       return jsonResponse(400, { error: "Prompt is required" }, corsHeaders);
@@ -562,12 +547,21 @@ export default {
     }
 
     const imageDataUrl = `data:image/png;base64,${b64}`;
-    const nextState = updateSharedImageState(prompt, imageDataUrl);
-    await persistSharedImageState(env, nextState);
+    const nextState = normalizeGlobalState(
+      {
+        prompt,
+        image_data_url: imageDataUrl,
+        fidelity,
+        size,
+        updated_at: Date.now()
+      },
+      Date.now()
+    );
+    await persistGlobalState(env, nextState);
 
     return jsonResponse(
       200,
-      { image_data_url: imageDataUrl },
+      nextState,
       corsHeaders
     );
   }

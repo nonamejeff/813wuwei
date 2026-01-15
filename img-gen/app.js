@@ -381,6 +381,8 @@ let isEditingPrompt = false;
 let isAdjustingFidelity = false;
 let hasAppliedBackendFidelity = false;
 let hasAppliedUserFidelity = false;
+let lastSyncErrorMessage = "";
+let lastSyncErrorAt = 0;
 
 const RATE_WINDOW_MS = 60000;
 const RATE_MAX = 30;
@@ -390,6 +392,7 @@ const RATE_ALPHA = 0.05;
 const FIDELITY_ALPHA = 0.03;
 const SEND_RATE_TICK_MS = 100;
 const FIDELITY_STORAGE_KEY = "imgGenFidelity";
+const SYNC_ERROR_COOLDOWN_MS = 5000;
 
 const devEnabled = new URLSearchParams(window.location.search).get("dev") === "1";
 
@@ -1147,6 +1150,17 @@ function setImageStatus(message) {
   imageStatus.textContent = message || "—";
 }
 
+function setSyncError(message) {
+  const nextMessage = message || "Image sync failed.";
+  const now = Date.now();
+  if (nextMessage === lastSyncErrorMessage && now - lastSyncErrorAt < SYNC_ERROR_COOLDOWN_MS) {
+    return;
+  }
+  lastSyncErrorMessage = nextMessage;
+  lastSyncErrorAt = now;
+  setImageStatus(nextMessage);
+}
+
 function applySharedImage(imageDataUrl) {
   if (!imageDataUrl) {
     return;
@@ -1215,15 +1229,16 @@ async function syncSharedState() {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const message = data?.error || "Image sync failed.";
-      setImageStatus(message);
+      setSyncError(message);
       return;
     }
     const state = normalizeSharedState(data);
     if (Number.isFinite(state.updated_at) && state.updated_at > lastSeenUpdatedAt) {
       applyStateToUI(state);
     }
+    lastSyncErrorMessage = "";
   } catch (error) {
-    // Ignore polling failures; retry on the next tick.
+    setSyncError(error?.message || "Image sync failed.");
   }
 }
 

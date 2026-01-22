@@ -1,9 +1,9 @@
-const IMAGE_BASE = "../../Photos/Biomes/";
+const IMAGE_BASE = "/assets/images/biomes/";
 
 const BIOME_DETAILS = [
   {
     name: "Xeric Hammock",
-    image: "Xeric Hammock.png",
+    image: "Xeric-Hammock.png",
     description:
       "On ancient dunes where fire has been forgotten, sand live oaks weave a closed canopy that locks in moisture and silence. The deep leaf litter creates a cool refuge from the surrounding heat, a place where the soil slowly builds itself up from the decay of the canopy.",
     whereHtml:
@@ -11,7 +11,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Wet Prairie",
-    image: "Wet Prairie.png",
+    image: "Wet-Prairie.png",
     description:
       "These sun-filled expanses exist in the delicate balance between the flood and the drought, where the ground remains soggy but rarely drowns. It is a shifting garden of wiregrass and wildflowers that waits for the water to recede to bloom, supporting a diversity that rivals the tropical forests.",
     whereHtml:
@@ -19,7 +19,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Wet Flatwoods",
-    image: "Wet Flatwoods.png",
+    image: "Wet-Flatwoods.png",
     description:
       "A pine forest with wet feet, where the water table hovers just below the surface to support a canopy of slash or pond pine. This landscape is shaped by the tension between the soak of the summer rains and the scorch of the dry season fire.",
     whereHtml:
@@ -27,7 +27,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Upland Pine",
-    image: "Upland Pine.png",
+    image: "Upland-Pine.png",
     description:
       "On rolling hills, widely spaced longleaf pines stand over a diverse carpet of wiregrass, maintained by the frequent cleansing of fire. This is a landscape of light and air, where the canopy remains open to the sky.",
     whereHtml:
@@ -35,7 +35,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Upland Mixed Woodland",
-    image: "Upland Mixed Woodland.png",
+    image: "Upland-Mixed-Woodland.png",
     description:
       "A transition zone where pines and southern red oaks share the canopy in an open, park-like setting. It is a landscape of balance, where fire keeps the understory clear and allows grasses to flourish between the hill and the hammock.",
     whereHtml:
@@ -43,7 +43,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Upland Hardwood Forest",
-    image: "Upland Hardwood.png",
+    image: "Upland-Hardwood.png",
     description:
       "A stately, closed-canopy forest where hardwoods like magnolia and hickory create deep shade and rich soil. Protected from fire, these trees grow tall and permanent, holding the earth in place with deep roots.",
     whereHtml:
@@ -51,7 +51,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Upland Glade",
-    image: "Upland Glade.png",
+    image: "Upland-Glade.png",
     description:
       "Small, grassy openings where the limestone bedrock breaks the surface, creating a harsh, sun-baked environment. These rare patches support delicate herbs that thrive on the calcium-rich rock, existing only where the soil is too thin for trees.",
     whereHtml:
@@ -59,7 +59,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Strand Swamp",
-    image: "Strand Swamp.png",
+    image: "Strand-Swamp.png",
     description:
       "A linear forest of cypress growing in a limestone trough, where water flows imperceptibly through the shadows. This flowing swamp connects the landscape, acting as a slow-moving river of trees that filters the water before it reaches the coast.",
     whereHtml:
@@ -67,7 +67,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Slough Marsh",
-    image: "Slough Marsh.png",
+    image: "Slough-Marsh.png",
     description:
       "A broad channel of grass moving water slowly through the flat landscape, shifting from dry meadow to flowing wetland with the seasons. It acts as the landscape’s drain, collecting rainfall and guiding it gently toward the river.",
     whereHtml:
@@ -75,7 +75,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Slough",
-    image: "Slough Final.png",
+    image: "Slough-Final.png",
     description:
       "The deepest veins of the wetland, where water moves so slowly it seems to stand still, lined by pop ash or pond apple. These open avenues are the lifeblood of the swamp, offering a final refuge for fish and alligators when the surrounding marsh dries to dust.",
     whereHtml:
@@ -83,7 +83,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Slope Forest",
-    image: "Slope Forest.png",
+    image: "Slope-Forest.png",
     description:
       "In deep, shaded ravines, cool microclimates allow northern hardwoods to mix with southern evergreens on steep inclines. It is a landscape of steep refuge, preserving biological diversity in the shadows.",
     whereHtml:
@@ -91,7 +91,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Sinkhole",
-    image: "Sinkhole Final.png",
+    image: "Sinkhole-Final.png",
     description:
       "A window into the earth’s aquifer, where the ground has collapsed to reveal a cool, shaded microclimate. These limestone depressions shelter delicate ferns from the drying sun, creating a humid oasis in the forest floor.",
     whereHtml:
@@ -99,7 +99,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Shrub Bog",
-    image: "Shrub Bog.png",
+    image: "Shrub-Bog.png",
     description:
       "A dense, impenetrable thicket of titi and fetterbush rooted in deep, mucky peat. It is a place of stillness and saturation, where shrubs aggressively reclaim the land in the absence of fire.",
     whereHtml:
@@ -107,7 +107,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Shell Mound",
-    image: "Shell Mound.png",
+    image: "Shell-Mound.png",
     description:
       "Hills built by ancient hands from discarded shells, now supporting a unique forest of calcium-loving plants. These anthropogenic ridges rise from the coast, a testament to civilizations that lived in rhythm with the estuary.",
     whereHtml:
@@ -115,7 +115,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Seepage Slope",
-    image: "Seepage Slope.png",
+    image: "Seepage-Slope.png",
     description:
       "On steep hillsides, groundwater trickles to the surface, creating a boggy oasis in the dry uplands. This constant seep supports carnivorous plants that depend on the water’s unceasing flow.",
     whereHtml:
@@ -123,7 +123,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Scrubby Flatwoods",
-    image: "Scrubby Flatwoods.png",
+    image: "Scrubby-Flatwoods.png",
     description:
       "A tension zone between the moist flatwoods and the dry scrub, where scattered pines stand over a thicket of scrub oaks and saw palmetto. Here, plants must tolerate both the wet and the dry, existing on the sandy rises of the flatlands.",
     whereHtml:
@@ -131,7 +131,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Scrub",
-    image: "Scrub Final.png",
+    image: "Scrub-Final.png",
     description:
       "On ancient, bone-dry dunes, life is stunted and twisted by the scarcity of water. It is a harsh forest of scrub oaks and rosemary that endures long periods of silence before being renewed by intense fire.",
     whereHtml:
@@ -139,7 +139,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Sandhill",
-    image: "Sandhill Final.png",
+    image: "Sandhill-Final.png",
     description:
       "Rolling hills of deep sand support widely spaced longleaf pines and turkey oaks. It is a sun-washed savanna kept open by fire, where wiregrass holds the sugar-sand in place.",
     whereHtml:
@@ -147,7 +147,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Salt Marsh",
-    image: "Salt Marsh.png",
+    image: "Salt-Marsh.png",
     description:
       "A vast expanse of cordgrass and needle rush that drinks the tide twice a day. This is the liquid land where the boundary between earth and ocean dissolves, fueling the estuary with the energy of decay.",
     whereHtml:
@@ -155,7 +155,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Rockland Hammock",
-    image: "Rockland Hammock.png",
+    image: "Rockland-Hammock.png",
     description:
       "A tropical hardwood forest growing on a thin veneer of soil over limestone rock. Inside, the air is still and humid, a green silence protected from the sun and fire.",
     whereHtml:
@@ -163,7 +163,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Pine Rockland",
-    image: "Pine Rockland.png",
+    image: "Pine-Rockland.png",
     description:
       "A jagged, rocky terrain where South Florida slash pines root directly into eroded limestone. This fire-dependent garden thrives on sun-baked rock where few other forests could survive.",
     whereHtml:
@@ -171,7 +171,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Mesic Hammock",
-    image: "Mesic Hammock.png",
+    image: "Mesic-Hammock.png",
     description:
       "Islands of cool shade in a landscape of sun, these forests of live oak and cabbage palm develop where fire cannot reach. The dense canopy retains moisture, creating a stable sanctuary for ferns and air plants.",
     whereHtml:
@@ -179,7 +179,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Mesic Flatwoods",
-    image: "Mesic Flatwoods.png",
+    image: "Mesic-Flatwoods.png",
     description:
       "The quintessential landscape where tall pines cast long shadows over a floor of saw palmetto and wiregrass. It is a system built on fire; without the flames, the open, sun-drenched diversity is lost to the shadows.",
     whereHtml:
@@ -187,7 +187,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Marl Prairie",
-    image: "Marl Prairie.png",
+    image: "Marl-Prairie.png",
     description:
       "A carpet of grasses growing on a thin layer of calcareous mud that seals off the limestone below. This landscape dries down annually, allowing wildflowers to bloom before the water returns.",
     whereHtml:
@@ -195,7 +195,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Maritime Hammock",
-    image: "Maritime Hammock Final.png",
+    image: "Maritime-Hammock-Final.png",
     description:
       "On old dunes protected from the salt spray, a canopy of live oak and cabbage palm creates a cool refuge. This forest is sculpted by the wind, its low profile a testament to the power of the sea breeze.",
     whereHtml:
@@ -203,7 +203,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Mangrove Swamp",
-    image: "Mangrove Swamp Final.png",
+    image: "Mangrove-Swamp-Final.png",
     description:
       "A forest that walks into the sea, trapping sediments in a tangle of prop roots. It is a quiet, horizontal world where falling leaves fuel the aquatic food web and protect the coast from the tides.",
     whereHtml:
@@ -211,7 +211,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Limestone Outcrop",
-    image: "Limestone Outcrop Final.png",
+    image: "Limestone-Outcrop-Final.png",
     description:
       "Where the bones of the earth break through the soil, delicate ferns and mosses cling to the cool rock faces. These fragile outcrops offer a moist microclimate protected from the drying sun.",
     whereHtml:
@@ -219,7 +219,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Keys Tidal Rock Barren",
-    image: "Keys Tidal Rock Barren.png",
+    image: "Keys-Tidal-Rock-Barren.png",
     description:
       "A stark platform of eroded limestone just above the daily tide, washed only by storms. Here, only the hardiest plants persist in the pockets of marl between the white rock.",
     whereHtml:
@@ -227,7 +227,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Keys Cactus Barren",
-    image: "Keys Cactus Barren.png",
+    image: "Keys-Cactus-Barren.png",
     description:
       "On the sun-baked limestone where soil is scarce, life strips down to its essentials. Cacti and agave cling to the bare rock, thriving in the harsh heat.",
     whereHtml:
@@ -235,7 +235,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Hydric Hammock",
-    image: "Hydric Hammock.png",
+    image: "Hydric-Hammock.png",
     description:
       "A shady forest of oaks and cabbage palms where the limestone lies just beneath the wet soil. It occupies the margins between swamp and upland, surviving occasional floods with a dense canopy that rarely burns.",
     whereHtml:
@@ -243,7 +243,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Glades Marsh",
-    image: "Glades Marsh.png",
+    image: "Glades-Marsh.png",
     description:
       "The true River of Grass, a boundless sheet of water moving imperceptibly over peat and limestone. Here, sawgrass and sky merge, dependent on the slow flow of water to keep the landscape alive.",
     whereHtml:
@@ -251,7 +251,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Floodplain Swamp",
-    image: "Floodplain Swamp.png",
+    image: "Floodplain-Swamp.png",
     description:
       "In the dark backwaters of the river, buttressed cypress and tupelo trees stand in the tea-colored current. This water-bound forest thrives on the nutrient pulse of the flood, filtering the river system.",
     whereHtml:
@@ -259,7 +259,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Floodplain Marsh",
-    image: "Floodplain Marsh.png",
+    image: "Floodplain-Marsh.png",
     description:
       "Along the river’s edge, the forest gives way to open ribbons of sawgrass and cordgrass that rise and fall with the flowing water. These marshes are the river’s breathing room, shifting with the floods.",
     whereHtml:
@@ -267,7 +267,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Dry Prairie",
-    image: "Dry Prairie.png",
+    image: "Dry-Prairie.png",
     description:
       "A sweeping horizon of wiregrass and saw palmetto where the sky touches the earth without interruption. It is maintained by fire and flood, existing in a perpetual state of renewal.",
     whereHtml:
@@ -275,7 +275,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Dome Swamp",
-    image: "Dome Swamp.png",
+    image: "Dome-Swamp.png",
     description:
       "A circular cathedral of cypress trees, growing taller toward the center where the peat is deep. It is a reservoir for the landscape, surviving on the delicate balance between the flood that feeds it and the fire that keeps it open.",
     whereHtml:
@@ -283,7 +283,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Depression Marsh",
-    image: "Depression Marsh.png",
+    image: "Depression-Marsh.png",
     description:
       "A small, rounded window into the water table, where rings of grasses mark the slow retreat of the water. These shallow ponds foster a burst of aquatic life before drying down to wait for the rain.",
     whereHtml:
@@ -291,7 +291,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Coastal Strand",
-    image: "Coastal Strand.png",
+    image: "Coastal-Strand.png",
     description:
       "Smoothed by salt spray, this community of tough shrubs acts as a living windbreak along the coast. It survives by bending to the breeze, protecting the interior from the sea’s breath.",
     whereHtml:
@@ -299,7 +299,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Coastal Interdunal Swale",
-    image: "Coastal Interdunal.png",
+    image: "Coastal-Interdunal.png",
     description:
       "In the low troughs between dune ridges, rainwater gathers to create fleeting linear wetlands. These slender marshes shift with the seasons, offering fresh water in a landscape defined by salt.",
     whereHtml:
@@ -307,7 +307,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Coastal Grassland",
-    image: "Coastal Grassland.png",
+    image: "Coastal-Grassland.png",
     description:
       "Behind the dunes, the wind softens, allowing a meadow of grasses to settle the shifting sands. It is a landscape of pause between the ocean’s fury and the inland scrub.",
     whereHtml:
@@ -315,7 +315,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Coastal Berm",
-    image: "Coastal Berm.png",
+    image: "Coastal-Berm.png",
     description:
       "A ridge of loose shell and debris cast up by storms, now a quiet refuge for tropical shrubs. It is a testament to the ocean’s power to create new land, offering a foothold just above the tides.",
     whereHtml:
@@ -323,7 +323,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Bottomland Forest",
-    image: "Bottomland Forest.png",
+    image: "Bottomland-Forest.png",
     description:
       "On the high terraces of the floodplain, this forest exists in the lull between the river’s floods. It is a place of transition, where the water recedes enough for a diversity of oaks to stand tall in the rich soil.",
     whereHtml:
@@ -331,7 +331,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Beach Dune",
-    image: "Beach Dune.png",
+    image: "Beach-Dune.png",
     description:
       "A restless edge where the sea gives up its sand to the wind, built and rebuilt by storms. Life here clings to a landscape that is always in motion, finding stability in the shifting grains.",
     whereHtml:
@@ -339,7 +339,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Baygall",
-    image: "Baygall Final 2.png",
+    image: "Baygall-Final-2.png",
     description:
       "A dense tangle fed by the slow bleed of groundwater, where the air hangs heavy and humid. The deep peat floor supports a green silence of bay trees that thrives in the absence of fire.",
     whereHtml:
@@ -347,7 +347,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Basin Swamp",
-    image: "Basin Swamp.png",
+    image: "Basin-Swamp.png",
     description:
       "In these deep basins, time slows down, allowing peat to gather beneath a canopy of ancient cypress. It is a dark refuge that holds the rain, releasing it slowly back to the earth only when the season turns.",
     whereHtml:
@@ -355,7 +355,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Basin Marsh",
-    image: "Basin Marsh.png",
+    image: "Basin-Marsh.png",
     description:
       "A vast, shallow expanse where water rests before moving on, shifting between lake and meadow. It is a grassy bowl where the sky reflects on the water, hosting a quiet succession of life.",
     whereHtml:
@@ -363,7 +363,7 @@ const BIOME_DETAILS = [
   },
   {
     name: "Alluvial Forest",
-    image: "Alluvial Forest.png",
+    image: "Alluvial-Forest.png",
     description:
       "A forest born of the river’s restlessness, where floodwaters sculpt ridges and swales from the shifting earth. Here, the land breathes with the rise and fall of the season, feeding the estuary with the richness of its own decay.",
     whereHtml:

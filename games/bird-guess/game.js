@@ -1,5 +1,5 @@
-const IMAGE_BASE = "../../bird/";
-const AUDIO_BASE = "../../audio/";
+const IMAGE_BASE = "/assets/images/birds/";
+const AUDIO_BASE = "/assets/audio/";
 
 const BIRDS = [
   // Update this list whenever you add new bird image/audio files to the bird or audio folders.
@@ -36,7 +36,7 @@ const BIRDS = [
   { name: "Tricolored Heron", image: `${IMAGE_BASE}tricolored-heron.webp`, mp3: `${AUDIO_BASE}Tricolored-Heron.mp3`, web4: `${AUDIO_BASE}Tricolored-Heron.web4` },
   { name: "Western Osprey", image: `${IMAGE_BASE}western-osprey.webp`, mp3: `${AUDIO_BASE}Western-Osprey.mp3`, web4: `${AUDIO_BASE}Western-Osprey.web4` },
   { name: "White Ibis", image: `${IMAGE_BASE}white-ibis.webp`, mp3: `${AUDIO_BASE}White-Ibis.mp3`, web4: `${AUDIO_BASE}White-Ibis.web4` },
-  { name: "Wilsons Snipe", image: `${IMAGE_BASE}wilsons-snipe.jpg`, mp3: `${AUDIO_BASE}Wilsons-Snipe.mp3`, web4: `${AUDIO_BASE}Wilsons-Snipe.web4` },
+  { name: "Wilsons Snipe", image: `${IMAGE_BASE}wilsons-snipe.webp`, mp3: `${AUDIO_BASE}Wilsons-Snipe.mp3`, web4: `${AUDIO_BASE}Wilsons-Snipe.web4` },
   { name: "Wood Stork", image: `${IMAGE_BASE}wood-stork.webp`, mp3: `${AUDIO_BASE}Wood-Stork.mp3`, web4: `${AUDIO_BASE}Wood-Stork.web4` },
   { name: "Yellow Rail", image: `${IMAGE_BASE}yellow-rail.webp`, mp3: `${AUDIO_BASE}Yellow-Rail.mp3`, web4: `${AUDIO_BASE}Yellow-Rail.web4` },
   { name: "Yellow Crowned Night Heron", image: `${IMAGE_BASE}yellow-crowned-night-heron.webp`, mp3: `${AUDIO_BASE}Yellow-crowned-Night-Heron.mp3`, web4: `${AUDIO_BASE}Yellow-crowned-Night-Heron.web4` },

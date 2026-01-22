@@ -14,7 +14,7 @@ body {
   margin: 0;
   line-height: 1.7;
   background-color: var(--paper);
-  background-image: url("/assets/pattern-ecology.svg");
+  background-image: url("/assets/patterns/pattern-ecology.svg");
   background-repeat: repeat;
   background-size: calc(512px * var(--pattern-scale)) calc(512px * var(--pattern-scale));
 }

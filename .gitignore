@@ -1,2 +1,25 @@
 output/plates_prompts/
 apikey.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# Build outputs
+output/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Python
+__pycache__/
+*.pyc
+.env
+
+# Local dev
+*.log

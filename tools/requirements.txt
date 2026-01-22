@@ -1,0 +1,11 @@
+# Python dependencies for 813wuwei tools
+
+# Web scraping dependencies
+requests
+beautifulsoup4
+
+# Image processing
+Pillow
+
+# AI/LLM dependencies
+openai

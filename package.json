@@ -1,0 +1,13 @@
+{
+  "name": "813wuwei",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx serve .",
+    "format": "prettier --write '**/*.{js,css,html,json,md}'",
+    "lint:links": "npx linkinator . --recurse --skip 'node_modules'"
+  },
+  "devDependencies": {
+    "prettier": "^3.0.0"
+  }
+}

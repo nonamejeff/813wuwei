@@ -440,13 +440,11 @@ function buildPrompt(tokens) {
 
   const selected = [...affect, ...motion, ...material, ...light, ...color, ...place];
   const maxWeight = Math.max(1, ...selected.map((item) => item.weight));
-  const weighted = selected
-    .slice(0, 8)
-    .map((item) => {
-      const normalized = item.weight / maxWeight;
-      const weight = Math.min(1.6, 0.8 + normalized * 0.8);
-      return `(${item.phrase}:${weight.toFixed(2)})`;
-    });
+  const weighted = selected.slice(0, 8).map((item) => {
+    const normalized = item.weight / maxWeight;
+    const weight = Math.min(1.6, 0.8 + normalized * 0.8);
+    return `(${item.phrase}:${weight.toFixed(2)})`;
+  });
 
   const moodLine = buildMoodLine(
     {
@@ -498,13 +496,18 @@ export class GlobalStateDO {
       if (request.method === "GET") {
         if (url.pathname === "/v1/state") {
           const storedState = await loadState(this.storage, this.env);
-          const currentState = buildStateResponse(storedState, url.origin);
-          return jsonResponse(
-            200,
-            currentState,
-            corsHeaderSource,
-            NO_CACHE_HEADERS
+          const timestamps = await loadSendTimestamps(this.storage);
+          const now = Date.now();
+          const activeTimestamps = timestamps.filter((t) => t >= now - 30000);
+          const TARGET = 100;
+          const calculatedFidelity = clamp(
+            Math.ceil((activeTimestamps.length / TARGET) * 100),
+            0,
+            100
           );
+          storedState.fidelity = calculatedFidelity;
+          const currentState = buildStateResponse(storedState, url.origin);
+          return jsonResponse(200, currentState, corsHeaderSource, NO_CACHE_HEADERS);
         }
         return new Response("not found", { status: 404, headers: corsHeaderSource });
       }
@@ -531,7 +534,8 @@ export class GlobalStateDO {
             prompt_sessions: Array.isArray(payload?.prompt_sessions)
               ? payload.prompt_sessions
               : existingState.prompt_sessions,
-            prompt: typeof payload?.prompt === "string" ? payload.prompt.trim() : existingState.prompt,
+            prompt:
+              typeof payload?.prompt === "string" ? payload.prompt.trim() : existingState.prompt,
             image_key:
               payload?.image_key === null
                 ? null
@@ -575,11 +579,7 @@ export class GlobalStateDO {
         );
         const prunedLen = prunedTimestamps.length;
         const TARGET = 100;
-        state.fidelity = clamp(
-          Math.ceil((prunedLen / TARGET) * 100),
-          0,
-          100
-        );
+        state.fidelity = clamp(Math.ceil((prunedLen / TARGET) * 100), 0, 100);
 
         const storedSessions = normalizePromptSessions(state.prompt_sessions);
         storedSessions.push(words);
@@ -592,11 +592,7 @@ export class GlobalStateDO {
         await writeGlobalState(this.storage, this.env, state);
         await writeSendTimestamps(this.storage, prunedTimestamps);
 
-        return jsonResponse(
-          200,
-          state,
-          corsHeaderSource
-        );
+        return jsonResponse(200, state, corsHeaderSource);
       }
 
       if (url.pathname === "/v1/prompt/clear") {
@@ -708,8 +704,7 @@ export class GlobalStateDO {
       }
 
       if (!upstreamResponse.ok) {
-        const message =
-          upstreamJson?.error?.message || "OpenAI request failed";
+        const message = upstreamJson?.error?.message || "OpenAI request failed";
         return jsonResponse(upstreamResponse.status, { error: message }, corsHeaderSource);
       }
 
@@ -749,11 +744,7 @@ export class GlobalStateDO {
         NO_CACHE_HEADERS
       );
     } catch (error) {
-      return jsonResponse(
-        500,
-        { error: error?.message || "Internal error" },
-        corsHeaderSource
-      );
+      return jsonResponse(500, { error: error?.message || "Internal error" }, corsHeaderSource);
     }
   }
 }
@@ -798,11 +789,7 @@ export default {
         out.headers.set("Cache-Control", "no-store");
         return out;
       } catch (error) {
-        return jsonResponse(
-          500,
-          { error: error?.message || "Internal error" },
-          corsHeaderSource
-        );
+        return jsonResponse(500, { error: error?.message || "Internal error" }, corsHeaderSource);
       }
     }
 

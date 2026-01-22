@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Permanent Impermanence</title>
+    <meta
+      name="description"
+      content="An interactive artwork exploring the boundary between coherence and chaos."
+    />
+    <meta property="og:title" content="Permanent Impermanence" />
+    <meta
+      property="og:description"
+      content="An interactive artwork exploring the boundary between coherence and chaos."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="canonical" href="https://813wuwei.com/artwork/" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <canvas id="field"></canvas>
+    <div class="artwork-info">
+      <div class="prompt-display">
+        <h3>Current Prompt</h3>
+        <div id="promptOutput" class="prompt-text"></div>
+        <h4>Negative Prompt</h4>
+        <div id="negativeOutput" class="negative-text"></div>
+        <div id="promptTimestamp" class="timestamp"></div>
+      </div>
+      <div class="status-display">
+        <div id="imageStatus" class="status-text">Loading...</div>
+      </div>
+    </div>
+    <div class="artwork-controls">
+      <button id="simulateBtn" type="button" class="simulate-btn">Simulate Activity</button>
+    </div>
+    <div class="generated-image-container" style="display: none">
+      <img id="generatedImage" alt="Generated artwork" />
+    </div>
+    <div class="dev-link">
+      <a href="/img-gen/?dev=1" target="_blank">Dev Tools</a>
+    </div>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

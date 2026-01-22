@@ -1,146 +1,156 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Generative Art Tool - Tampa Bay Biodiversity Atlas</title>
-  <meta name="description" content="Create beautiful generative art inspired by Tampa Bay's biodiversity. Interactive canvas-based art generation tool." />
-  <meta property="og:title" content="Generative Art Tool - Tampa Bay Biodiversity Atlas" />
-  <meta property="og:description" content="Create beautiful generative art inspired by Tampa Bay's biodiversity." />
-  <meta property="og:type" content="website" />
-  <link rel="canonical" href="https://813wuwei.com/img-gen/" />
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <canvas id="field"></canvas>
-  <div class="simple-ui">
-    <label class="control">
-      <span>Words</span>
-      <textarea
-        id="userWords"
-        rows="3"
-        placeholder="Enter a few words (comma separated or free text)…"
-      ></textarea>
-    </label>
-    <button id="sendWordsBtn" type="button">Send</button>
-    <label class="control">
-      <span>Prompt</span>
-      <textarea id="promptOut" rows="4" readonly></textarea>
-    </label>
-    <label class="control">
-      <span>Coherence Sensitivity</span>
-      <input id="sensitivity" type="range" min="0" max="1" step="0.01" value="0.5" />
-      <span class="control-hint">How responsive coherence is to activity.</span>
-    </label>
-    <label class="control">
-      <span>Fidelity</span>
-      <input id="fidelitySlider" type="range" min="0" max="1" step="0.01" value="0.05" />
-    </label>
-    <button id="generateImageBtn" type="button">Generate</button>
-    <div id="imageStatus" class="readout">—</div>
-    <img id="generatedImage" alt="Generated image" />
-  </div>
-  <div class="dev-panel" id="devTools" style="display: none;">
-    <div class="controls">
-      <div class="control">
-        <span>Motion</span>
-        <div id="motionReadout" class="readout">—</div>
-      </div>
-      <div class="control">
-        <span>Regime</span>
-        <div id="regimeReadout" class="readout">—</div>
-      </div>
-      <div class="control">
-        <span>Entropy</span>
-        <div id="entropyReadout" class="readout">—</div>
-      </div>
-      <div class="control">
-        <span>Coherence</span>
-        <div id="coherenceReadout" class="readout">—</div>
-      </div>
-      <div class="control">
-        <span>Flow Enabled</span>
-        <div id="flowReadout" class="readout">—</div>
-      </div>
-      <div class="control">
-        <span>Rate (EPM)</span>
-        <div id="rateReadout" class="readout">—</div>
-      </div>
-      <div class="control">
-        <span>EMA Rate</span>
-        <div id="emaRateReadout" class="readout">—</div>
-      </div>
-      <div class="control">
-        <span>Target Fidelity</span>
-        <div id="targetFidelityReadout" class="readout">—</div>
-      </div>
-      <div class="control">
-        <span>Current Fidelity</span>
-        <div id="currentFidelityReadout" class="readout">—</div>
-      </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Generative Art Tool - Tampa Bay Biodiversity Atlas</title>
+    <meta
+      name="description"
+      content="Create beautiful generative art inspired by Tampa Bay's biodiversity. Interactive canvas-based art generation tool."
+    />
+    <meta property="og:title" content="Generative Art Tool - Tampa Bay Biodiversity Atlas" />
+    <meta
+      property="og:description"
+      content="Create beautiful generative art inspired by Tampa Bay's biodiversity."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="canonical" href="https://813wuwei.com/img-gen/" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <canvas id="field"></canvas>
+    <div class="simple-ui">
       <label class="control">
-        <span>K</span>
-        <input id="kValue" type="number" min="1" max="12" step="1" value="5" />
+        <span>Words</span>
+        <textarea
+          id="userWords"
+          rows="3"
+          placeholder="Enter a few words (comma separated or free text)…"
+        ></textarea>
       </label>
-      <button id="generatePrompt" class="full-row" type="button">Generate Prompt</button>
-    </div>
-    <div class="panel-section">
-      <h3>AI Target Prompt</h3>
-      <textarea id="promptBlock" class="prompt-block" rows="6" readonly></textarea>
-      <button id="copyPrompt" type="button">Copy Prompt</button>
+      <button id="sendWordsBtn" type="button">Send</button>
       <label class="control">
-        <span>Manual Override Prompt</span>
-        <textarea id="manualPrompt" rows="4"></textarea>
+        <span>Prompt</span>
+        <textarea id="promptOut" rows="4" readonly></textarea>
       </label>
-    </div>
-    <div class="panel-section">
-      <h3>Target Image</h3>
       <label class="control">
-        <span>Load Target Image</span>
-        <input id="targetImageInput" type="file" accept="image/*" />
+        <span>Coherence Sensitivity</span>
+        <input id="sensitivity" type="range" min="0" max="1" step="0.01" value="0.5" />
+        <span class="control-hint">How responsive coherence is to activity.</span>
       </label>
-      <div class="target-preview">
-        <img id="targetPreview" alt="Target preview" />
-        <button id="clearTargetImage" type="button">Clear Target Image</button>
+      <div class="dev-only" style="display: none">
+        <label class="control">
+          <span>Fidelity</span>
+          <input id="fidelitySlider" type="range" min="0" max="1" step="0.01" value="0.05" />
+        </label>
+      </div>
+      <div class="dev-only" style="display: none">
+        <button id="generateImageBtn" type="button">Generate</button>
+      </div>
+      <div id="imageStatus" class="readout">—</div>
+      <img id="generatedImage" alt="Generated image" />
+    </div>
+    <div class="dev-panel" id="devTools" style="display: none">
+      <div class="controls">
+        <div class="control">
+          <span>Motion</span>
+          <div id="motionReadout" class="readout">—</div>
+        </div>
+        <div class="control">
+          <span>Regime</span>
+          <div id="regimeReadout" class="readout">—</div>
+        </div>
+        <div class="control">
+          <span>Entropy</span>
+          <div id="entropyReadout" class="readout">—</div>
+        </div>
+        <div class="control">
+          <span>Coherence</span>
+          <div id="coherenceReadout" class="readout">—</div>
+        </div>
+        <div class="control">
+          <span>Flow Enabled</span>
+          <div id="flowReadout" class="readout">—</div>
+        </div>
+        <div class="control">
+          <span>Rate (EPM)</span>
+          <div id="rateReadout" class="readout">—</div>
+        </div>
+        <div class="control">
+          <span>EMA Rate</span>
+          <div id="emaRateReadout" class="readout">—</div>
+        </div>
+        <div class="control">
+          <span>Target Fidelity</span>
+          <div id="targetFidelityReadout" class="readout">—</div>
+        </div>
+        <div class="control">
+          <span>Current Fidelity</span>
+          <div id="currentFidelityReadout" class="readout">—</div>
+        </div>
+        <label class="control">
+          <span>K</span>
+          <input id="kValue" type="number" min="1" max="12" step="1" value="5" />
+        </label>
+        <button id="generatePrompt" class="full-row" type="button">Generate Prompt</button>
+      </div>
+      <div class="panel-section">
+        <h3>AI Target Prompt</h3>
+        <textarea id="promptBlock" class="prompt-block" rows="6" readonly></textarea>
+        <button id="copyPrompt" type="button">Copy Prompt</button>
+        <label class="control">
+          <span>Manual Override Prompt</span>
+          <textarea id="manualPrompt" rows="4"></textarea>
+        </label>
+      </div>
+      <div class="panel-section">
+        <h3>Target Image</h3>
+        <label class="control">
+          <span>Load Target Image</span>
+          <input id="targetImageInput" type="file" accept="image/*" />
+        </label>
+        <div class="target-preview">
+          <img id="targetPreview" alt="Target preview" />
+          <button id="clearTargetImage" type="button">Clear Target Image</button>
+        </div>
+      </div>
+      <div class="panel-section">
+        <h3>Generate Image</h3>
+        <label class="control">
+          <span>Image Size</span>
+          <select id="imageSize">
+            <option value="512x512">512x512</option>
+            <option value="1024x1024">1024x1024</option>
+            <option value="1024x1536">1024x1536</option>
+            <option value="1536x1024" selected>1536x1024</option>
+          </select>
+        </label>
+      </div>
+      <div class="inputs">
+        <textarea id="inputText" rows="3" placeholder=""></textarea>
+        <div class="input-actions">
+          <button id="submitText" type="button">Submit</button>
+          <button id="simulateBurst" type="button">Simulate Burst</button>
+        </div>
+      </div>
+      <div class="output">
+        <div class="output-block">
+          <div class="label">PROMPT</div>
+          <pre id="promptOutput"></pre>
+        </div>
+        <div class="output-block">
+          <div class="label">NEGATIVE</div>
+          <pre id="negativeOutput"></pre>
+        </div>
+        <div class="meta">
+          <div>Timestamp: <span id="promptTimestamp">—</span></div>
+          <div>K: <span id="currentK">—</span></div>
+          <div>Cluster sizes: <span id="clusterSizes">—</span></div>
+          <div>Total tokens: <span id="tokenCount">—</span></div>
+        </div>
+        <div class="clusters" id="clusterDetails"></div>
       </div>
     </div>
-    <div class="panel-section">
-      <h3>Generate Image</h3>
-      <label class="control">
-        <span>Image Size</span>
-        <select id="imageSize">
-          <option value="512x512">512x512</option>
-          <option value="1024x1024">1024x1024</option>
-          <option value="1024x1536">1024x1536</option>
-          <option value="1536x1024" selected>1536x1024</option>
-        </select>
-      </label>
-    </div>
-    <div class="inputs">
-      <textarea id="inputText" rows="3" placeholder=""></textarea>
-      <div class="input-actions">
-        <button id="submitText" type="button">Submit</button>
-        <button id="simulateBurst" type="button">Simulate Burst</button>
-      </div>
-    </div>
-    <div class="output">
-      <div class="output-block">
-        <div class="label">PROMPT</div>
-        <pre id="promptOutput"></pre>
-      </div>
-      <div class="output-block">
-        <div class="label">NEGATIVE</div>
-        <pre id="negativeOutput"></pre>
-      </div>
-      <div class="meta">
-        <div>Timestamp: <span id="promptTimestamp">—</span></div>
-        <div>K: <span id="currentK">—</span></div>
-        <div>Cluster sizes: <span id="clusterSizes">—</span></div>
-        <div>Total tokens: <span id="tokenCount">—</span></div>
-      </div>
-      <div class="clusters" id="clusterDetails"></div>
-    </div>
-  </div>
-  <script src="app.js"></script>
-</body>
+    <script type="module" src="app.js"></script>
+  </body>
 </html>

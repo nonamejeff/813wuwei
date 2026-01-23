@@ -167,9 +167,12 @@ function setFidelityUI(value, source) {
 
   if (source === "backend" && !devEnabled) {
     const sensitivity = Number(sensitivityInput?.value || 0.5);
-    // Apply sensitivity curve: high sensitivity = more responsive, low = smoother
-    const adjustedFidelity = Math.pow(clamped, 1 + (1 - sensitivity));
-    finalFidelity = clamp(adjustedFidelity, FIDELITY_MIN, FIDELITY_MAX);
+    // Sensitivity scales how quickly fidelity responds to rate
+    // High sensitivity: small rate changes → big fidelity changes
+    // Low sensitivity: fidelity changes more gradually
+    const scale = 0.5 + sensitivity * 1.0; // 0.5x to 1.5x
+    const adjustedFidelity = clamp(clamped * scale, 0, 1);
+    finalFidelity = adjustedFidelity;
   }
 
   targetFidelity = finalFidelity;

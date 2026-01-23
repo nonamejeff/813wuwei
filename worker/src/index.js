@@ -519,11 +519,10 @@ export class GlobalStateDO {
           const now = Date.now();
           const activeTimestamps = timestamps.filter((t) => t >= now - 30000);
           const TARGET = 100;
-          const calculatedFidelity = clamp(
-            Math.ceil((activeTimestamps.length / TARGET) * 100),
-            0,
-            100
-          );
+          // Apply S-curve for smoother regime transitions
+          const rawRate = activeTimestamps.length / TARGET;
+          const fidelityNormalized = 1 / (1 + Math.exp(-8 * (rawRate - 0.5)));
+          const calculatedFidelity = Math.round(fidelityNormalized * 100);
           storedState.fidelity = calculatedFidelity;
           const currentState = buildStateResponse(storedState, url.origin);
           return jsonResponse(200, currentState, corsHeaderSource, NO_CACHE_HEADERS);
@@ -598,7 +597,10 @@ export class GlobalStateDO {
         );
         const prunedLen = prunedTimestamps.length;
         const TARGET = 100;
-        state.fidelity = clamp(Math.ceil((prunedLen / TARGET) * 100), 0, 100);
+        // Apply S-curve for smoother regime transitions
+        const rawRate = prunedLen / TARGET;
+        const fidelityNormalized = 1 / (1 + Math.exp(-8 * (rawRate - 0.5)));
+        state.fidelity = Math.round(fidelityNormalized * 100);
 
         const newTokens = normalizeTokens(words);
         const existingTokens = Array.isArray(state.aggregated_tokens)

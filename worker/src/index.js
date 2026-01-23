@@ -22,7 +22,7 @@ const DEFAULT_FIDELITY = 0;
 // Storing base64 image blobs in Durable Object SQLite triggered SQLITE_TOOBIG,
 // so the DO now stores only small metadata and image keys/URLs.
 const DEFAULT_GLOBAL_STATE = {
-  prompt_sessions: [],
+  aggregated_tokens: [],
   prompt: "",
   fidelity: DEFAULT_FIDELITY,
   size: "1024x1024",
@@ -242,13 +242,6 @@ const NO_CACHE_HEADERS = {
   Expires: "0"
 };
 
-function normalizePromptSessions(sessions) {
-  if (!Array.isArray(sessions)) {
-    return [];
-  }
-  return sessions.filter((entry) => typeof entry === "string" && entry.trim().length > 0);
-}
-
 function normalizeSendTimestamps(value) {
   if (!Array.isArray(value)) {
     return [];
@@ -280,8 +273,10 @@ function normalizeImageKey(value) {
 
 function normalizeGlobalState(state, fallbackUpdatedAt = 0) {
   return {
-    prompt_sessions: normalizePromptSessions(state?.prompt_sessions),
-    prompt: typeof state?.prompt === "string" ? state.prompt : "",
+    aggregated_tokens: Array.isArray(state?.aggregated_tokens)
+      ? state.aggregated_tokens.filter((t) => typeof t === "string").slice(-200)
+      : [],
+    prompt: typeof state?.prompt === "string" ? state.prompt.slice(0, 4000) : "",
     fidelity: normalizeFidelity(state?.fidelity),
     size: typeof state?.size === "string" ? state.size : DEFAULT_GLOBAL_STATE.size,
     image_key: normalizeImageKey(state?.image_key),
@@ -321,15 +316,35 @@ async function loadSendTimestamps(storage) {
   return normalizeSendTimestamps(stored);
 }
 
+function estimateStateSize(state) {
+  return JSON.stringify(state).length;
+}
+
+const MAX_STATE_SIZE = 100000; // 100KB safety limit
+
 async function writeGlobalState(storage, env, state) {
   if (!storage?.put || state === undefined || state === null) {
     return;
   }
   const normalized = normalizeGlobalState(state, state.updated_at);
+  const size = estimateStateSize(normalized);
+
+  if (size > MAX_STATE_SIZE) {
+    console.error(`State too large: ${size} bytes, truncating tokens`);
+    // Emergency truncation
+    normalized.aggregated_tokens = normalized.aggregated_tokens.slice(-50);
+  }
+
+  // Write to Durable Object storage (primary)
   await storage.put(GLOBAL_STATE_KEY, normalized);
+
+  // Write to KV only if state is small enough (under 25KB)
   if (env?.IMAGE_STATE_KV?.put) {
     const value = JSON.stringify(normalized);
-    await env.IMAGE_STATE_KV.put(GLOBAL_STATE_KEY, value);
+    if (value.length < 25000) {
+      // 25KB limit for safety
+      await env.IMAGE_STATE_KV.put(GLOBAL_STATE_KEY, value);
+    }
   }
 }
 
@@ -581,11 +596,15 @@ export class GlobalStateDO {
         const TARGET = 100;
         state.fidelity = clamp(Math.ceil((prunedLen / TARGET) * 100), 0, 100);
 
-        const storedSessions = normalizePromptSessions(state.prompt_sessions);
-        storedSessions.push(words);
-        state.prompt_sessions = storedSessions.slice(-MAX_WORD_ENTRIES);
-
-        const tokens = normalizeTokens(state.prompt_sessions.join(" "));
+        const newTokens = normalizeTokens(words);
+        const existingTokens = Array.isArray(state.aggregated_tokens)
+          ? state.aggregated_tokens
+          : [];
+        const allTokens = [...existingTokens, ...newTokens];
+        // Keep only last 200 unique tokens to stay under size limit
+        const uniqueTokens = [...new Set(allTokens)].slice(-200);
+        state.aggregated_tokens = uniqueTokens;
+        const tokens = uniqueTokens;
         state.prompt = buildPrompt(tokens);
         state.updated_at = now;
 

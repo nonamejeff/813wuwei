@@ -3,7 +3,11 @@ const ALLOWED_SIZES = new Set(["512x512", "1024x1024", "1024x1536", "1536x1024"]
 const MAX_WORD_ENTRIES = 50;
 const GLOBAL_STATE_KEY = "global_state";
 const SEND_TIMESTAMPS_KEY = "send_timestamps";
-const ALLOWED = new Set(["https://www.813wuwei.com", "https://813wuwei.com"]);
+const ALLOWED = new Set([
+  "https://www.813wuwei.com",
+  "https://813wuwei.com",
+  "http://localhost:3000"
+]);
 // "Failed to fetch" in browser often means CORS preflight blocked; OPTIONS must return 204 with CORS headers.
 function corsHeaders(req) {
   const origin = req.headers.get("Origin") || "";

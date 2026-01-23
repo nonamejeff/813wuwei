@@ -46,6 +46,17 @@ const FRAGMENT_SHADER = `
     float n = 1.0 - f;
     float motion = log2(1.0 + 7.0 * n) / log2(8.0);
 
+    // Add instability at high fidelity
+    float instability = 0.0;
+    if (f > 0.85) {
+      // High fidelity = unstable jitter
+      instability = (f - 0.85) / 0.15;  // 0 at 0.85, 1 at 1.0
+      float jitterSeed = u_seed + floor(u_time * 30.0);
+      float jitter = (hash12(p + jitterSeed) - 0.5) * instability * 0.03;
+      // Apply micro-displacement at high fidelity
+      p += jitter * 10.0;
+    }
+
     if (f < 0.02) {
       float r = hash12(p + u_seed * 17.0 + floor(u_time * 60.0));
       float g = hash12(p + u_seed * 31.0 + floor(u_time * 60.0) + 11.0);
@@ -288,7 +299,14 @@ class WebGLRenderer {
 
     const noiseAmount = 1 - this.fidelity;
     const timeAmp = this.motionCurve(noiseAmount);
-    const regime = this.fidelity < 0.3 ? "ENTROPY" : this.fidelity < 0.85 ? "SCRAMBLE" : "HIGH";
+    const regime =
+      this.fidelity < 0.1
+        ? "COLLAPSE"
+        : this.fidelity < 0.5
+          ? "SCRAMBLE"
+          : this.fidelity < 0.8
+            ? "CONVERGE"
+            : "UNSTABLE";
 
     const renderData = {
       motion: timeAmp.toFixed(3),

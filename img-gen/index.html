@@ -29,10 +29,12 @@
         ></textarea>
       </label>
       <button id="sendWordsBtn" type="button">Send</button>
-      <label class="control">
-        <span>Prompt</span>
-        <textarea id="promptOut" rows="4" readonly></textarea>
-      </label>
+      <div class="dev-only" style="display: none">
+        <label class="control">
+          <span>Prompt</span>
+          <textarea id="promptOut" rows="4" readonly></textarea>
+        </label>
+      </div>
       <label class="control">
         <span>Coherence Sensitivity</span>
         <input id="sensitivity" type="range" min="0" max="1" step="0.01" value="0.5" />
@@ -47,8 +49,10 @@
       <div class="dev-only" style="display: none">
         <button id="generateImageBtn" type="button">Generate</button>
       </div>
-      <div id="imageStatus" class="readout">—</div>
-      <img id="generatedImage" alt="Generated image" />
+      <div class="dev-only" style="display: none">
+        <div id="imageStatus" class="readout">—</div>
+        <img id="generatedImage" alt="Generated image" />
+      </div>
     </div>
     <div class="dev-panel" id="devTools" style="display: none">
       <div class="controls">

@@ -167,8 +167,9 @@ function setFidelityUI(value, source) {
 
   if (source === "backend" && !devEnabled) {
     const sensitivity = Number(sensitivityInput?.value || 0.5);
-    const adjustedFidelity = Math.pow(clamped / 100, 1 + (1 - sensitivity));
-    finalFidelity = clamp(adjustedFidelity * 100, 0, 100);
+    // Apply sensitivity curve: high sensitivity = more responsive, low = smoother
+    const adjustedFidelity = Math.pow(clamped, 1 + (1 - sensitivity));
+    finalFidelity = clamp(adjustedFidelity, FIDELITY_MIN, FIDELITY_MAX);
   }
 
   targetFidelity = finalFidelity;

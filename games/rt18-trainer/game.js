@@ -42,6 +42,7 @@ const CRUISE_RPM = 1630;
 const SPEED_RATIO_FACTOR = (CRUISE_SPEED_MPH * TOP_GEAR_RATIO) / CRUISE_RPM;
 const MIN_NEEDLE_ANGLE = -120;
 const MAX_NEEDLE_ANGLE = 120;
+const MAX_LOAD_CARS = 3;
 
 const START_STATE = {
   throttle: 0,
@@ -54,10 +55,16 @@ const START_STATE = {
   stalled: false,
   blown: false,
   muted: false,
+  loadCars: 0,
   status: "READY",
 };
 
 const state = { ...START_STATE };
+const scene = {
+  roadOffset: 0,
+  wheelRotation: 0,
+  bobPhase: 0,
+};
 
 const elements = {
   throttleSlider: document.getElementById("throttle-slider"),
@@ -82,6 +89,14 @@ const elements = {
   soundToggle: document.getElementById("sound-toggle"),
   toggleButtons: Array.from(document.querySelectorAll("[data-control]")),
   stickButtons: Array.from(document.querySelectorAll(".stick-button")),
+  loadReadout: document.getElementById("load-readout"),
+  loadUp: document.getElementById("load-up"),
+  loadDown: document.getElementById("load-down"),
+  laneStripes: document.querySelector(".lane-stripes"),
+  rigWrap: document.getElementById("rig-wrap"),
+  truckRig: document.getElementById("truck-rig"),
+  loadCars: Array.from(document.querySelectorAll(".nascar-load")),
+  wheels: Array.from(document.querySelectorAll(".wheel")),
 };
 
 const audio = {
@@ -240,7 +255,7 @@ function getLaunchAssist(selection, speed) {
   return clamp(1 - roadSpeed / assistWindow, 0, 1);
 }
 
-function getShiftLuggingState(selection, speed, previousSelection = null) {
+function getShiftLuggingState(selection, speed, previousSelection = null, loadCars = 0) {
   if (!selection || selection.kind !== "forward" || !selection.ratio) {
     return null;
   }
@@ -253,34 +268,37 @@ function getShiftLuggingState(selection, speed, previousSelection = null) {
   const ratioStep = previousSelection && previousSelection.ratio
     ? selection.ratio / previousSelection.ratio
     : 1;
+  const stallRpm = SHIFT_STALL_RPM + loadCars * 26;
+  const hardBogRpm = SHIFT_HARD_BOG_RPM + loadCars * 34;
+  const bogRpm = SHIFT_BOG_RPM + loadCars * 46;
 
-  if (projectedRpm < SHIFT_STALL_RPM) {
+  if (projectedRpm < stallRpm) {
     return "stall";
   }
 
-  if (projectedRpm < SHIFT_HARD_BOG_RPM) {
+  if (projectedRpm < hardBogRpm) {
     if (ratioStep < 0.38) {
       return "stall";
     }
     return "bog";
   }
 
-  if (projectedRpm < SHIFT_BOG_RPM) {
+  if (projectedRpm < bogRpm) {
     return "bog";
   }
 
-  if (ratioStep < 0.28 && projectedRpm < 760) {
+  if (ratioStep < 0.28 && projectedRpm < 760 + loadCars * 48) {
     return "stall";
   }
 
-  if (ratioStep < 0.46 && projectedRpm < 920) {
+  if (ratioStep < 0.46 && projectedRpm < 920 + loadCars * 56) {
     return "bog";
   }
 
   return null;
 }
 
-function getDriveLuggingState(selection, speed, throttleAmount) {
+function getDriveLuggingState(selection, speed, throttleAmount, loadCars = 0) {
   if (!selection || selection.kind !== "forward" || !selection.ratio) {
     return null;
   }
@@ -295,16 +313,19 @@ function getDriveLuggingState(selection, speed, throttleAmount) {
   }
 
   const coupledRpm = coupledRpmAtSpeed(selection, speed);
+  const stallRpm = DRIVE_STALL_RPM + loadCars * 26;
+  const hardBogRpm = DRIVE_HARD_BOG_RPM + loadCars * 34;
+  const bogRpm = DRIVE_BOG_RPM + loadCars * 48;
 
-  if (coupledRpm < DRIVE_STALL_RPM && throttleAmount > 0.72) {
+  if (coupledRpm < stallRpm && throttleAmount > Math.max(0.5, 0.72 - loadCars * 0.05)) {
     return "stall";
   }
 
-  if (coupledRpm < DRIVE_HARD_BOG_RPM && throttleAmount > 0.48) {
+  if (coupledRpm < hardBogRpm && throttleAmount > Math.max(0.34, 0.48 - loadCars * 0.04)) {
     return "bog";
   }
 
-  if (coupledRpm < DRIVE_BOG_RPM && throttleAmount > 0.62) {
+  if (coupledRpm < bogRpm && throttleAmount > Math.max(0.45, 0.62 - loadCars * 0.04)) {
     return "bog";
   }
 
@@ -721,6 +742,9 @@ function blowEngine() {
 function resetSim() {
   const muted = state.muted;
   Object.assign(state, START_STATE, { muted });
+  scene.roadOffset = 0;
+  scene.wheelRotation = 0;
+  scene.bobPhase = 0;
   elements.throttleSlider.value = "0";
   elements.blownOverlay.classList.add("is-hidden");
   elements.statusLine.classList.remove("is-alert");
@@ -771,7 +795,7 @@ function tryStateChange(mutator, kind) {
   }
 
   let feedbackShown = false;
-  const luggingState = getShiftLuggingState(afterSelection, before.speed, beforeSelection);
+  const luggingState = getShiftLuggingState(afterSelection, before.speed, beforeSelection, before.loadCars);
   if (luggingState === "stall") {
     state.speed = before.speed * 0.96;
     stopEngine("STALLED IT");
@@ -843,9 +867,14 @@ function updatePhysics(dt) {
   const direction = selection.slot === "reverse" ? -1 : 1;
   const targetSpeed = targetSpeedForGear(selection) * direction;
   const gearPull = Math.pow(selection.ratio / TOP_GEAR_RATIO, 0.12);
-  const accel = throttleAmount > 0.01 ? (0.24 + throttleAmount * 0.92) * gearPull : 1.05;
+  const loadPenalty = 1 + state.loadCars * 0.32;
+  const accel = throttleAmount > 0.01
+    ? ((0.24 + throttleAmount * 0.92) * gearPull) / loadPenalty
+    : 1.05;
   const launchAssist = getLaunchAssist(selection, state.speed);
-  const luggingState = selection.kind === "forward" ? getDriveLuggingState(selection, state.speed, throttleAmount) : null;
+  const luggingState = selection.kind === "forward"
+    ? getDriveLuggingState(selection, state.speed, throttleAmount, state.loadCars)
+    : null;
   const lugFactor = luggingState === "stall" ? 0.18 : luggingState === "bog" ? 0.55 : 1;
 
   state.speed += (targetSpeed - state.speed) * Math.min(dt * accel * lugFactor, 1);
@@ -859,8 +888,13 @@ function updatePhysics(dt) {
     state.speed = 0;
   }
 
+  const roadDrag = (0.02 + state.loadCars * 0.018) * (0.3 + Math.abs(state.speed) / 90);
+  state.speed += (0 - state.speed) * Math.min(dt * roadDrag, 1);
+
   const coupledRpm = coupledRpmAtSpeed(selection, state.speed);
-  const engineLoad = throttleAmount > 0.02 ? throttleAmount * 70 : 0;
+  const engineLoad = throttleAmount > 0.02
+    ? throttleAmount * (70 + state.loadCars * 18)
+    : 0;
   const freeRevTarget = IDLE_RPM + throttleAmount * (FREE_REV_LIMIT - IDLE_RPM) * 0.42;
   let targetRpm = Math.max(IDLE_RPM, coupledRpm + engineLoad);
 
@@ -888,6 +922,20 @@ function updatePhysics(dt) {
   }
 }
 
+function updateScene(dt) {
+  const speed = state.speed;
+  const speedMagnitude = Math.abs(speed);
+  scene.roadOffset -= speed * dt * 18;
+  if (scene.roadOffset <= -118) {
+    scene.roadOffset += 118;
+  } else if (scene.roadOffset >= 118) {
+    scene.roadOffset -= 118;
+  }
+
+  scene.wheelRotation = (scene.wheelRotation + speed * dt * 110) % 360;
+  scene.bobPhase = (scene.bobPhase + dt * (1.4 + speedMagnitude * 0.24 + (state.engineRunning ? state.rpm / 1800 : 0))) % (Math.PI * 2);
+}
+
 function updateToggleState() {
   elements.rangeToggle.dataset.active = state.range;
   elements.splitToggle.dataset.active = state.split;
@@ -909,6 +957,8 @@ function updateStickState() {
     button.disabled = state.blown;
   });
 
+  elements.neutralButton.classList.toggle("is-active", state.slot === "neutral");
+  elements.neutralButton.setAttribute("aria-pressed", String(state.slot === "neutral"));
   elements.neutralButton.disabled = state.blown;
   elements.startButton.disabled = state.blown;
 }
@@ -932,9 +982,33 @@ function render() {
         : "Forward";
   elements.soundToggle.textContent = state.muted ? "Sound: Off" : "Sound: On";
   elements.startButton.classList.toggle("is-hidden", state.engineRunning || state.blown);
+  elements.loadReadout.textContent = `${state.loadCars} NASCAR${state.loadCars === 1 ? "" : "s"}`;
+  elements.loadDown.disabled = state.loadCars === 0;
+  elements.loadUp.disabled = state.loadCars === MAX_LOAD_CARS;
 
   setNeedle(elements.speedNeedle, Math.abs(state.speed), 0, 75);
   setNeedle(elements.rpmNeedle, state.rpm, 500, 3000);
+
+  elements.loadCars.forEach((car, index) => {
+    car.classList.toggle("is-hidden", index >= state.loadCars);
+  });
+
+  if (elements.laneStripes) {
+    elements.laneStripes.style.transform = `translateX(${scene.roadOffset}px)`;
+  }
+
+  if (elements.rigWrap) {
+    const bounce = Math.sin(scene.bobPhase) * Math.min(4, Math.abs(state.speed) * 0.1 + (state.engineRunning ? state.rpm / 1200 : 0));
+    elements.rigWrap.style.transform = `translateX(-50%) translateY(${bounce.toFixed(2)}px)`;
+  }
+
+  if (elements.truckRig) {
+    elements.truckRig.style.filter = `drop-shadow(0 ${6 + state.loadCars * 2}px ${10 + state.loadCars * 4}px rgba(0, 0, 0, 0.34))`;
+  }
+
+  elements.wheels.forEach((wheel) => {
+    wheel.style.transform = `rotate(${scene.wheelRotation.toFixed(2)}deg)`;
+  });
 
   if (state.status !== elements.statusLine.textContent) {
     elements.statusLine.textContent = state.status;
@@ -953,6 +1027,7 @@ function frame(time) {
   lastFrameTime = time;
 
   updatePhysics(dt);
+  updateScene(dt);
   updateAudio();
 
   if (statusTimer && time >= statusTimer && !state.blown && state.status !== "REDLINE") {
@@ -1018,6 +1093,16 @@ elements.soundToggle.addEventListener("click", () => {
 
 elements.resetSim.addEventListener("click", resetSim);
 elements.rebuildButton.addEventListener("click", resetSim);
+elements.loadDown.addEventListener("click", () => {
+  state.loadCars = clamp(state.loadCars - 1, 0, MAX_LOAD_CARS);
+  setStatus(state.loadCars === 0 ? "TRAILER EMPTY" : `${state.loadCars} NASCAR${state.loadCars === 1 ? "" : "S"} LOADED`, false, 900);
+  render();
+});
+elements.loadUp.addEventListener("click", () => {
+  state.loadCars = clamp(state.loadCars + 1, 0, MAX_LOAD_CARS);
+  setStatus(`${state.loadCars} NASCAR${state.loadCars === 1 ? "" : "S"} LOADED`, false, 900);
+  render();
+});
 
 render();
 requestAnimationFrame(frame);

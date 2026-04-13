@@ -60,14 +60,39 @@
           <div class="rig-wrap" id="rig-wrap">
             <div class="truck-rig" id="truck-rig">
               <div class="cab-body">
+                <span class="cab-roof"></span>
                 <span class="cab-window"></span>
+                <span class="cab-door-line"></span>
+                <span class="cab-grill"></span>
+                <span class="cab-bumper"></span>
+                <span class="cab-mirror"></span>
+                <span class="cab-stack"></span>
                 <span class="cab-number">66</span>
               </div>
+              <span class="fifth-wheel"></span>
               <div class="trailer-body">
+                <span class="trailer-stripe"></span>
+                <span class="trailer-door"></span>
+                <span class="trailer-marker"></span>
                 <div class="load-bay" id="load-bay">
-                  <span class="nascar-load car-1 is-hidden"></span>
-                  <span class="nascar-load car-2 is-hidden"></span>
-                  <span class="nascar-load car-3 is-hidden"></span>
+                  <span class="nascar-load car-1 is-hidden">
+                    <span class="car-roof"></span>
+                    <span class="car-window"></span>
+                    <span class="car-spoiler"></span>
+                    <span class="car-number">66</span>
+                  </span>
+                  <span class="nascar-load car-2 is-hidden">
+                    <span class="car-roof"></span>
+                    <span class="car-window"></span>
+                    <span class="car-spoiler"></span>
+                    <span class="car-number">66</span>
+                  </span>
+                  <span class="nascar-load car-3 is-hidden">
+                    <span class="car-roof"></span>
+                    <span class="car-window"></span>
+                    <span class="car-spoiler"></span>
+                    <span class="car-number">66</span>
+                  </span>
                 </div>
               </div>
               <span class="wheel wheel-front"></span>
@@ -192,6 +217,10 @@
               <span class="trace trace-center-vertical"></span>
               <span class="trace trace-right-vertical"></span>
 
+              <button id="neutral-button" class="neutral-button neutral-stick" type="button" aria-label="Neutral position">
+                <span class="neutral-stick-letter">N</span>
+              </button>
+
               <button class="stick-button reverse" data-slot="reverse" type="button" aria-label="Reverse position">
                 <span class="reverse-stack">
                   <span>HI</span>
@@ -255,9 +284,6 @@
           </div>
 
           <div class="control-buttons">
-            <button id="neutral-button" class="neutral-button hardware-neutral" type="button">
-              Neutral
-            </button>
             <button id="start-engine" class="neutral-button start-button is-hidden" type="button">
               Start
             </button>

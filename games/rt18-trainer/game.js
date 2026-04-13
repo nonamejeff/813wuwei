@@ -955,7 +955,7 @@ function render() {
         : "Forward";
   elements.soundToggle.textContent = state.muted ? "Sound: Off" : "Sound: On";
   elements.startButton.classList.toggle("is-hidden", state.engineRunning || state.blown);
-  elements.loadReadout.textContent = `${state.loadCars} NASCAR${state.loadCars === 1 ? "" : "s"}`;
+  elements.loadReadout.textContent = `${state.loadCars} Stock Car${state.loadCars === 1 ? "" : "s"}`;
   elements.loadDown.disabled = state.loadCars === 0;
   elements.loadUp.disabled = state.loadCars === MAX_LOAD_CARS;
 
@@ -1046,12 +1046,12 @@ elements.resetSim.addEventListener("click", resetSim);
 elements.rebuildButton.addEventListener("click", resetSim);
 elements.loadDown.addEventListener("click", () => {
   state.loadCars = clamp(state.loadCars - 1, 0, MAX_LOAD_CARS);
-  setStatus(state.loadCars === 0 ? "TRAILER EMPTY" : `${state.loadCars} NASCAR${state.loadCars === 1 ? "" : "S"} LOADED`, false, 900);
+  setStatus(state.loadCars === 0 ? "TRAILER EMPTY" : `${state.loadCars} STOCK CAR${state.loadCars === 1 ? "" : "S"} LOADED`, false, 900);
   render();
 });
 elements.loadUp.addEventListener("click", () => {
   state.loadCars = clamp(state.loadCars + 1, 0, MAX_LOAD_CARS);
-  setStatus(`${state.loadCars} NASCAR${state.loadCars === 1 ? "" : "S"} LOADED`, false, 900);
+  setStatus(`${state.loadCars} STOCK CAR${state.loadCars === 1 ? "" : "S"} LOADED`, false, 900);
   render();
 });
 

@@ -1,0 +1,770 @@
+:root {
+  color: #eef2f5;
+  font-family: "Trebuchet MS", "Gill Sans", sans-serif;
+  --accent: #d96c27;
+  --accent-strong: #ff944d;
+  --border: rgba(255, 255, 255, 0.12);
+  --panel: rgba(23, 31, 38, 0.92);
+  background: #0d1216;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  line-height: 1.5;
+  color: #eef2f5;
+  background:
+    radial-gradient(circle at top, #253443 0%, #0d1216 45%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0 18%, transparent 18% 100%);
+  background-attachment: fixed;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.page-shell {
+  width: min(1280px, 94vw);
+  margin: 0 auto;
+  padding: 32px 0 64px;
+}
+
+.hero-panel,
+.dash-panel,
+.control-panel,
+.map-panel {
+  background: linear-gradient(180deg, rgba(31, 42, 50, 0.95), rgba(17, 23, 28, 0.96));
+  border: 1px solid var(--border);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(10px);
+}
+
+.hero-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  padding: 28px 30px 32px;
+}
+
+.hero-panel::after {
+  content: "RT-18";
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  font-family: "Courier New", "Courier", monospace;
+  font-size: clamp(2rem, 6vw, 4rem);
+  letter-spacing: 0.24em;
+  color: rgba(255, 255, 255, 0.12);
+}
+
+.page-nav {
+  display: flex;
+  margin-bottom: 16px;
+  font-family: "Courier New", "Courier", monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.page-nav a {
+  color: #c4d0d9;
+  text-decoration: none;
+}
+
+.page-nav a:hover {
+  color: #ffffff;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #8fa2b1;
+  font-family: "Courier New", "Courier", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+}
+
+.eyebrow.small {
+  margin-bottom: 4px;
+  font-size: 0.68rem;
+}
+
+h1 {
+  max-width: 12ch;
+  margin: 0 0 12px;
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+}
+
+.intro {
+  max-width: 68ch;
+  margin: 0;
+  color: #d2dbe1;
+  font-size: 1.02rem;
+}
+
+.baseline-strip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  margin-top: 18px;
+  padding: 10px 14px;
+  border: 1px solid rgba(217, 108, 39, 0.35);
+  border-radius: 999px;
+  background: rgba(217, 108, 39, 0.08);
+  color: #ffc79c;
+  font-family: "Courier New", "Courier", monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.sim-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.dash-panel,
+.control-panel,
+.map-panel {
+  padding: 24px;
+  border-radius: 28px;
+}
+
+.display-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.display-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 150px;
+  padding: 18px 18px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(8, 12, 16, 0.92), rgba(20, 26, 31, 0.96));
+}
+
+.display-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+}
+
+.display-card.primary {
+  background:
+    radial-gradient(circle at top, rgba(233, 131, 61, 0.16), transparent 45%),
+    linear-gradient(180deg, rgba(8, 12, 16, 0.96), rgba(20, 26, 31, 0.96));
+}
+
+.display-label,
+.status-label,
+.coach-label,
+.panel-label,
+.preview-card span:first-child {
+  color: #92a3ad;
+  font-family: "Courier New", "Courier", monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.display-label {
+  font-size: 0.72rem;
+}
+
+.display-card strong {
+  margin-top: 10px;
+  font-family: "Courier New", "Courier", monospace;
+  font-size: clamp(2.4rem, 4vw, 3.4rem);
+  line-height: 1;
+}
+
+.display-unit {
+  margin-top: 10px;
+  color: #ffd6b8;
+  font-family: "Courier New", "Courier", monospace;
+  font-size: 0.76rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.status-card,
+.coach-card,
+.band-card,
+.speed-panel,
+.selector-card,
+.shifter-panel,
+.gear-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.status-card {
+  padding: 16px 18px;
+  border-radius: 18px;
+}
+
+.status-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.7rem;
+}
+
+.status-card strong {
+  font-size: 1.05rem;
+}
+
+.coach-card,
+.band-card,
+.speed-panel,
+.selector-card,
+.shifter-panel {
+  margin-top: 14px;
+  padding: 20px;
+  border-radius: 22px;
+}
+
+.coach-label,
+.panel-label {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+}
+
+#shift-message {
+  margin: 0;
+  color: #e6edf1;
+  font-size: 1.02rem;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.preview-card {
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.preview-card span:first-child {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 0.68rem;
+}
+
+.preview-card strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 1.15rem;
+}
+
+.band-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  color: #d7e0e6;
+  font-family: "Courier New", "Courier", monospace;
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.band-bar {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 0.8fr;
+  gap: 8px;
+  margin: 16px 0 12px;
+}
+
+.band {
+  display: block;
+  height: 14px;
+  border-radius: 999px;
+}
+
+.band-low {
+  background: linear-gradient(90deg, #2f7ddd, #4cc4ff);
+}
+
+.band-mid {
+  background: linear-gradient(90deg, #5cb85c, #b8df5f);
+}
+
+.band-high {
+  background: linear-gradient(90deg, #f0b045, #ff6b57);
+}
+
+.band-note,
+.selector-note,
+.shifter-note,
+.map-note {
+  margin: 12px 0 0;
+  color: #b5c2ca;
+  font-size: 0.92rem;
+}
+
+.panel-top,
+.shifter-head,
+.map-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel-top {
+  align-items: flex-start;
+}
+
+.panel-top strong {
+  font-size: 1.5rem;
+}
+
+.shifter-head {
+  align-items: flex-start;
+}
+
+.map-header {
+  align-items: flex-end;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.map-header h2 {
+  margin: 4px 0 0;
+  font-size: 1.8rem;
+}
+
+.ghost-button,
+.selector-button,
+.speed-buttons button,
+.stick-button {
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.ghost-button,
+.selector-button,
+.speed-buttons button {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ghost-button {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #eef2f5;
+  font-family: "Courier New", "Courier", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ghost-button:hover,
+.selector-button:hover,
+.speed-buttons button:hover,
+.stick-button:hover {
+  transform: translateY(-2px);
+}
+
+.speed-slider {
+  width: 100%;
+  margin: 18px 0 12px;
+  accent-color: var(--accent-strong);
+}
+
+.speed-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.speed-buttons button {
+  padding: 10px 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #eef2f5;
+  font-family: "Courier New", "Courier", monospace;
+}
+
+.speed-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  color: #92a3ad;
+  font-family: "Courier New", "Courier", monospace;
+  font-size: 0.72rem;
+}
+
+.selector-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.selector-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.selector-button {
+  padding: 14px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #d7e0e6;
+  font-family: "Courier New", "Courier", monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.selector-button.is-active {
+  border-color: rgba(255, 187, 132, 0.48);
+  background: linear-gradient(180deg, rgba(217, 108, 39, 0.25), rgba(217, 108, 39, 0.1));
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(217, 108, 39, 0.18);
+}
+
+.knob-stage {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.knob-face {
+  position: relative;
+  width: min(390px, 100%);
+  aspect-ratio: 0.84;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 48% 48% 60% 60% / 28% 28% 72% 72%;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.55) 16%, rgba(214, 222, 229, 0.82) 32%, rgba(166, 174, 182, 0.86) 58%, rgba(230, 236, 240, 0.75) 73%, rgba(137, 145, 153, 0.9) 100%);
+  box-shadow:
+    inset 0 4px 18px rgba(255, 255, 255, 0.34),
+    inset 0 -10px 18px rgba(0, 0, 0, 0.2),
+    0 20px 40px rgba(0, 0, 0, 0.35);
+}
+
+.knob-face::after {
+  content: "";
+  position: absolute;
+  inset: 10px 12px 16px;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 38%);
+  pointer-events: none;
+}
+
+.trace {
+  position: absolute;
+  border-radius: 999px;
+  background: #2a2f34;
+  opacity: 0.72;
+}
+
+.trace-left-vertical {
+  top: 28%;
+  left: 20.8%;
+  width: 2px;
+  height: 28%;
+}
+
+.trace-horizontal {
+  top: 43.4%;
+  left: 20.8%;
+  width: 53.8%;
+  height: 2px;
+}
+
+.trace-center-vertical {
+  top: 28%;
+  left: 46.8%;
+  width: 2px;
+  height: 46%;
+}
+
+.trace-right-vertical {
+  top: 28%;
+  left: 74.6%;
+  width: 2px;
+  height: 46%;
+}
+
+.stick-button {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 2px solid #0f1114;
+  background: linear-gradient(180deg, #0d1013, #20262d);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 8px 16px rgba(0, 0, 0, 0.25);
+}
+
+.stick-button.is-active {
+  outline: 3px solid rgba(255, 181, 118, 0.85);
+  outline-offset: 4px;
+  box-shadow:
+    0 0 0 8px rgba(255, 160, 93, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 12px 18px rgba(0, 0, 0, 0.35);
+}
+
+.stick-button.reverse {
+  top: 16%;
+  left: 12%;
+  width: 74px;
+  height: 92px;
+  border-radius: 12px;
+}
+
+.stick-button.low {
+  top: 56%;
+  left: 12%;
+  width: 74px;
+  height: 90px;
+  border-radius: 12px;
+}
+
+.stick-button.one,
+.stick-button.two,
+.stick-button.three,
+.stick-button.four {
+  width: 82px;
+  height: 82px;
+  border-radius: 12px;
+}
+
+.stick-button.one {
+  top: 16%;
+  left: 37%;
+}
+
+.stick-button.two {
+  top: 56%;
+  left: 37%;
+}
+
+.stick-button.three {
+  top: 16%;
+  left: 64%;
+}
+
+.stick-button.four {
+  top: 56%;
+  left: 64%;
+}
+
+.gear-stack,
+.reverse-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.gear-stack span {
+  font-size: 2rem;
+}
+
+.gear-stack span:last-child {
+  margin-top: 6px;
+}
+
+.reverse-stack {
+  gap: 8px;
+  font-family: "Courier New", "Courier", monospace;
+}
+
+.reverse-stack span:first-child,
+.reverse-stack span:last-child {
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+}
+
+.gear-mark {
+  font-size: 2.1rem;
+}
+
+.single-gear {
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.split-mark {
+  position: absolute;
+  top: 12px;
+  right: 10px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-family: "Courier New", "Courier", monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.map-panel {
+  margin-top: 24px;
+}
+
+.gear-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.gear-card {
+  padding: 16px 14px;
+  border-radius: 18px;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.gear-card.is-active {
+  transform: translateY(-2px);
+  border-color: rgba(255, 181, 118, 0.54);
+  background: rgba(217, 108, 39, 0.12);
+}
+
+.gear-number {
+  display: block;
+  color: #ffffff;
+  font-family: "Courier New", "Courier", monospace;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.gear-truck-label {
+  display: block;
+  margin-top: 8px;
+  font-weight: 700;
+}
+
+.gear-ratio {
+  display: block;
+  margin-top: 8px;
+  color: #f3c4a0;
+  font-family: "Courier New", "Courier", monospace;
+  font-size: 0.78rem;
+}
+
+.gear-slot {
+  display: block;
+  margin-top: 6px;
+  color: #9bb0bb;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 1080px) {
+  .sim-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .map-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .page-shell {
+    width: min(96vw, 680px);
+  }
+
+  .hero-panel,
+  .dash-panel,
+  .control-panel,
+  .map-panel {
+    padding: 20px;
+    border-radius: 24px;
+  }
+
+  h1 {
+    max-width: none;
+    font-size: clamp(2rem, 10vw, 3rem);
+  }
+
+  .display-grid,
+  .status-grid,
+  .preview-grid,
+  .selector-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .knob-face {
+    width: min(340px, 100%);
+  }
+
+  .stick-button.reverse,
+  .stick-button.low {
+    width: 64px;
+    height: 84px;
+  }
+
+  .stick-button.one,
+  .stick-button.two,
+  .stick-button.three,
+  .stick-button.four {
+    width: 72px;
+    height: 72px;
+  }
+
+  .gear-stack span {
+    font-size: 1.75rem;
+  }
+
+  .single-gear {
+    font-size: 1.5rem;
+  }
+
+  .split-mark {
+    right: 8px;
+    font-size: 0.9rem;
+  }
+}

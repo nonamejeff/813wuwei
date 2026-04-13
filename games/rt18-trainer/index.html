@@ -6,12 +6,12 @@
   <title>Eaton 18-Speed Trainer - 813 Wu Wei</title>
   <meta
     name="description"
-    content="Private training page for learning a common Eaton Fuller 18-speed shift pattern with realistic range, splitter, vehicle speed, and engine RPM behavior."
+    content="Private driver trainer for learning a common Eaton Fuller 18-speed with guided lessons, realistic controls, and simple step-by-step coaching."
   />
   <meta property="og:title" content="Eaton 18-Speed Trainer - 813 Wu Wei" />
   <meta
     property="og:description"
-    content="Private training page for a common Eaton 18-speed Roadranger shift pattern."
+    content="Private driver trainer for learning a common Eaton Fuller 18-speed with guided practice."
   />
   <meta property="og:type" content="website" />
   <meta name="robots" content="noindex, nofollow" />
@@ -24,266 +24,368 @@
       <nav class="page-nav">
         <a href="/">Back to Home</a>
       </nav>
-      <p class="eyebrow">Hidden Driver Trainer</p>
-      <h1>Eaton 18-Speed Roadranger Trainer</h1>
+      <p class="eyebrow">Private Driver Trainer</p>
+      <h1>Learn the Eaton 18-Speed One Move at a Time</h1>
       <p class="intro">
-        Train on a common Eaton-style 18-speed using the real stick labels from the knob, a
-        range selector, and a splitter button. The shifter face stays true to the truck; the
-        dashboard translates that into forward gears 1-18.
+        This page is built for first familiarity, not memorizing specs. Learn the box in small
+        chunks, touch controls that look like the real truck controls, and let the coach tell
+        you what to do next.
       </p>
-      <div class="baseline-strip">
-        <span>Baseline</span>
-        <strong>RT-18 Ratios</strong>
-        <span>65 MPH at 1630 RPM in 8H</span>
+
+      <div class="cab-legend">
+        <span>White switch = range</span>
+        <span>Thumb button = splitter</span>
+        <span>Knob pattern = real truck labels</span>
       </div>
     </header>
 
+    <section class="lesson-panel">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow small">Beginner Path</p>
+          <h2>Practice in Short Lessons</h2>
+        </div>
+        <p class="section-copy">
+          Start with the controls, then build the shift pattern a few moves at a time. The
+          technical ratio chart stays hidden until you want it.
+        </p>
+      </div>
+      <div class="lesson-strip" id="lesson-strip" aria-label="Lesson choices"></div>
+    </section>
+
     <section class="sim-layout">
-      <section class="dash-panel" aria-label="Transmission dashboard">
-        <div class="display-grid">
-          <article class="display-card primary">
-            <span class="display-label">Displayed Gear</span>
-            <strong id="gear-display">N</strong>
-            <span class="display-unit" id="gear-meaning">Neutral</span>
-          </article>
+      <section class="coach-panel" aria-label="Training coach">
+        <p class="eyebrow small">Current Lesson</p>
+        <h2 id="lesson-title">Learn the controls</h2>
+        <p class="lesson-copy" id="lesson-copy"></p>
 
-          <article class="display-card">
-            <span class="display-label">Vehicle Speed</span>
-            <strong id="speed-readout">0.0</strong>
-            <span class="display-unit">MPH</span>
-          </article>
-
-          <article class="display-card">
-            <span class="display-label">Engine RPM</span>
-            <strong id="rpm-readout">650</strong>
-            <span class="display-unit">RPM</span>
-          </article>
+        <div class="progress-meta">
+          <span id="lesson-progress-text">Step 1 of 5</span>
+          <span class="status-pill" id="step-status">Do the step</span>
+        </div>
+        <div class="progress-bar" aria-hidden="true">
+          <span id="progress-fill"></span>
         </div>
 
-        <div class="status-grid">
-          <article class="status-card">
-            <span class="status-label">Stick Position</span>
-            <strong id="slot-readout">Neutral</strong>
-          </article>
+        <article class="coach-card focus-card">
+          <p class="coach-label">Do This Now</p>
+          <h3 id="step-title">Get centered</h3>
+          <p id="step-instruction"></p>
+        </article>
 
-          <article class="status-card">
-            <span class="status-label">Range</span>
-            <strong id="range-readout">Low</strong>
-          </article>
+        <article class="coach-card why-card">
+          <p class="coach-label">Why It Matters</p>
+          <p id="step-why"></p>
+        </article>
 
-          <article class="status-card">
-            <span class="status-label">Splitter</span>
-            <strong id="split-readout">Low</strong>
-          </article>
+        <article class="coach-card feedback-card" id="feedback-card">
+          <p class="coach-label">Coach Feedback</p>
+          <p id="feedback-message"></p>
+        </article>
 
-          <article class="status-card">
-            <span class="status-label">Ratio</span>
-            <strong id="ratio-readout">--</strong>
-          </article>
+        <div class="coach-actions">
+          <button id="restart-lesson" class="ghost-button" type="button">Restart Lesson</button>
+          <button id="next-step" class="primary-button" type="button" disabled>Next Step</button>
         </div>
-
-        <article class="coach-card">
-          <p class="coach-label">Shift Coach</p>
-          <p id="shift-message">
-            Start in low range and use the road-speed slider to watch where the splits land.
-          </p>
-
-          <div class="preview-grid">
-            <div class="preview-card">
-              <span>Previous Gear</span>
-              <strong id="prev-gear-readout">--</strong>
-              <span id="prev-rpm-readout">--</span>
-            </div>
-
-            <div class="preview-card">
-              <span>Next Gear</span>
-              <strong id="next-gear-readout">--</strong>
-              <span id="next-rpm-readout">--</span>
-            </div>
-          </div>
-        </article>
-
-        <article class="band-card">
-          <div class="band-header">
-            <span>Working Band</span>
-            <strong>1400-1800 RPM</strong>
-          </div>
-          <div class="band-bar" aria-hidden="true">
-            <span class="band band-low"></span>
-            <span class="band band-mid"></span>
-            <span class="band band-high"></span>
-          </div>
-          <p class="band-note">
-            This page uses Eaton's published 18-speed ratios with a common cruise reference so
-            the jump between gears stays realistic.
-          </p>
-        </article>
       </section>
 
-      <section class="control-panel" aria-label="Shifter controls">
-        <article class="speed-panel">
-          <div class="panel-top">
-            <div>
-              <p class="panel-label">Road Speed</p>
-              <strong><span id="speed-panel-readout">0.0</span> MPH</strong>
-            </div>
-            <button id="reset-button" class="ghost-button" type="button">Reset</button>
-          </div>
-
-          <input
-            id="speed-slider"
-            class="speed-slider"
-            type="range"
-            min="0"
-            max="75"
-            step="0.5"
-            value="0"
-          />
-
-          <div class="speed-buttons">
-            <button type="button" data-speed-step="-5">-5</button>
-            <button type="button" data-speed-step="-1">-1</button>
-            <button type="button" data-speed-step="1">+1</button>
-            <button type="button" data-speed-step="5">+5</button>
-          </div>
-
-          <div class="speed-scale" aria-hidden="true">
-            <span>0</span>
-            <span>15</span>
-            <span>30</span>
-            <span>45</span>
-            <span>60</span>
-            <span>75</span>
-          </div>
-        </article>
-
-        <div class="selector-grid">
-          <article class="selector-card">
-            <p class="panel-label">Range Selector</p>
-            <div class="selector-buttons">
-              <button class="selector-button is-active" data-control="range" data-value="low" type="button">
-                Low
-              </button>
-              <button class="selector-button" data-control="range" data-value="high" type="button">
-                High
-              </button>
-            </div>
-            <p class="selector-note">
-              Flip once through neutral between 4 and 5. LO is only used in low range.
-            </p>
+      <section class="practice-panel" aria-label="Truck controls and readouts">
+        <div class="readout-grid">
+          <article class="readout-card current-gear">
+            <span class="readout-label">Current Gear</span>
+            <strong id="gear-display">N</strong>
+            <span class="readout-sub" id="gear-meaning">Neutral</span>
           </article>
 
-          <article class="selector-card">
-            <p class="panel-label">Splitter Button</p>
-            <div class="selector-buttons">
-              <button class="selector-button is-active" data-control="split" data-value="low" type="button">
-                Low
-              </button>
-              <button class="selector-button" data-control="split" data-value="high" type="button">
-                High
-              </button>
-            </div>
-            <p class="selector-note">
-              Split each forward hole without moving the stick.
-            </p>
+          <article class="readout-card">
+            <span class="readout-label">Truck Speed</span>
+            <strong id="speed-readout">0.0</strong>
+            <span class="readout-sub">MPH</span>
+          </article>
+
+          <article class="readout-card rpm-card" id="rpm-card">
+            <span class="readout-label">Engine</span>
+            <strong id="rpm-readout">650</strong>
+            <span class="readout-sub" id="rpm-band">Stopped / idle</span>
           </article>
         </div>
 
-        <article class="shifter-panel">
-          <div class="shifter-head">
-            <div>
-              <p class="panel-label">Stick Pattern</p>
-              <p class="shifter-note">Tap a hole exactly as it is labeled on the knob.</p>
+        <p class="current-state" id="current-state">
+          Neutral. Truck stopped. Use the coach on the left and touch the highlighted control.
+        </p>
+
+        <div class="control-grid">
+          <article class="control-card speed-card guidable" data-focus-target="speed">
+            <div class="control-head">
+              <div>
+                <p class="control-label">Truck Speed</p>
+                <strong><span id="speed-panel-readout">0.0</span> MPH</strong>
+              </div>
+              <button id="reset-button" class="ghost-button" type="button">Reset Truck</button>
             </div>
-            <button id="neutral-button" class="ghost-button" type="button">Neutral</button>
-          </div>
 
-          <div class="knob-stage">
-            <div class="knob-face" role="group" aria-label="Eaton 18-speed shifter face">
-              <span class="trace trace-left-vertical"></span>
-              <span class="trace trace-horizontal"></span>
-              <span class="trace trace-center-vertical"></span>
-              <span class="trace trace-right-vertical"></span>
+            <input
+              id="speed-slider"
+              class="speed-slider"
+              type="range"
+              min="0"
+              max="75"
+              step="0.5"
+              value="0"
+              aria-label="Truck speed"
+            />
 
-              <button class="stick-button reverse" data-slot="reverse" type="button" aria-label="Reverse position">
-                <span class="reverse-stack">
-                  <span>HI</span>
-                  <span class="gear-mark">R</span>
-                  <span>LO</span>
-                </span>
+            <div class="speed-steps">
+              <button class="speed-step" type="button" data-speed-step="-5">Coast -5</button>
+              <button class="speed-step" type="button" data-speed-step="-1">Coast -1</button>
+              <button class="speed-step" type="button" data-speed-step="1">Roll +1</button>
+              <button class="speed-step" type="button" data-speed-step="5">Pull +5</button>
+            </div>
+
+            <p class="control-note">
+              Think of this as the truck rolling faster or slower on the road.
+            </p>
+          </article>
+
+          <article class="control-card switch-card guidable" data-focus-target="range">
+            <div class="control-head compact">
+              <div>
+                <p class="control-label">Range Switch</p>
+                <strong id="range-readout">Low</strong>
+              </div>
+            </div>
+
+            <div class="switch-frame range-frame" id="range-frame" data-active="low" aria-label="Range switch">
+              <span class="switch-thumb" aria-hidden="true"></span>
+              <button class="switch-option high" data-control="range" data-value="high" type="button">
+                High
               </button>
-
-              <button class="stick-button low" data-slot="low" type="button" aria-label="Low position">
-                <span class="single-gear">LO</span>
-                <span class="split-mark">
-                  <span>H</span>
-                  <span>L</span>
-                </span>
-              </button>
-
-              <button class="stick-button one" data-slot="one" type="button" aria-label="1 and 5 position">
-                <span class="gear-stack">
-                  <span>5</span>
-                  <span>1</span>
-                </span>
-                <span class="split-mark">
-                  <span>H</span>
-                  <span>L</span>
-                </span>
-              </button>
-
-              <button class="stick-button two" data-slot="two" type="button" aria-label="2 and 6 position">
-                <span class="gear-stack">
-                  <span>6</span>
-                  <span>2</span>
-                </span>
-                <span class="split-mark">
-                  <span>H</span>
-                  <span>L</span>
-                </span>
-              </button>
-
-              <button class="stick-button three" data-slot="three" type="button" aria-label="3 and 7 position">
-                <span class="gear-stack">
-                  <span>7</span>
-                  <span>3</span>
-                </span>
-                <span class="split-mark">
-                  <span>H</span>
-                  <span>L</span>
-                </span>
-              </button>
-
-              <button class="stick-button four" data-slot="four" type="button" aria-label="4 and 8 position">
-                <span class="gear-stack">
-                  <span>8</span>
-                  <span>4</span>
-                </span>
-                <span class="split-mark">
-                  <span>H</span>
-                  <span>L</span>
-                </span>
+              <button class="switch-option low" data-control="range" data-value="low" type="button">
+                Low
               </button>
             </div>
-          </div>
-        </article>
+
+            <p class="control-note">
+              White side switch. Low is the bottom half of the box. High repeats the same H
+              pattern for the top half.
+            </p>
+          </article>
+
+          <article class="control-card switch-card guidable" data-focus-target="split">
+            <div class="control-head compact">
+              <div>
+                <p class="control-label">Splitter</p>
+                <strong id="split-readout">Low</strong>
+              </div>
+            </div>
+
+            <div class="switch-frame split-frame" id="split-frame" data-active="low" aria-label="Splitter button">
+              <span class="switch-thumb" aria-hidden="true"></span>
+              <button class="switch-option low" data-control="split" data-value="low" type="button">
+                Low
+              </button>
+              <button class="switch-option high" data-control="split" data-value="high" type="button">
+                High
+              </button>
+            </div>
+
+            <p class="control-note">
+              Thumb button. It changes the gear inside the same stick hole without moving the
+              stick.
+            </p>
+          </article>
+
+          <article class="control-card shifter-card guidable" data-focus-target="stick">
+            <div class="control-head">
+              <div>
+                <p class="control-label">Shift Knob</p>
+                <p class="control-note short">The face below matches the truck labels.</p>
+              </div>
+              <button
+                id="neutral-button"
+                class="ghost-button guidable"
+                data-focus-target="neutral"
+                type="button"
+              >
+                Neutral
+              </button>
+            </div>
+
+            <div class="knob-stage">
+              <div class="knob-face" role="group" aria-label="Eaton 18-speed shifter face">
+                <span class="trace trace-left-vertical"></span>
+                <span class="trace trace-horizontal"></span>
+                <span class="trace trace-center-vertical"></span>
+                <span class="trace trace-right-vertical"></span>
+
+                <button
+                  class="stick-button guidable reverse"
+                  data-slot="reverse"
+                  data-focus-target="stick:reverse"
+                  type="button"
+                  aria-label="Reverse position"
+                >
+                  <span class="reverse-stack">
+                    <span>HI</span>
+                    <span class="gear-mark">R</span>
+                    <span>LO</span>
+                  </span>
+                </button>
+
+                <button
+                  class="stick-button guidable low"
+                  data-slot="low"
+                  data-focus-target="stick:low"
+                  type="button"
+                  aria-label="Low position"
+                >
+                  <span class="single-gear">LO</span>
+                  <span class="split-mark">
+                    <span>H</span>
+                    <span>L</span>
+                  </span>
+                </button>
+
+                <button
+                  class="stick-button guidable one"
+                  data-slot="one"
+                  data-focus-target="stick:one"
+                  type="button"
+                  aria-label="1 and 5 position"
+                >
+                  <span class="gear-stack">
+                    <span>5</span>
+                    <span>1</span>
+                  </span>
+                  <span class="split-mark">
+                    <span>H</span>
+                    <span>L</span>
+                  </span>
+                </button>
+
+                <button
+                  class="stick-button guidable two"
+                  data-slot="two"
+                  data-focus-target="stick:two"
+                  type="button"
+                  aria-label="2 and 6 position"
+                >
+                  <span class="gear-stack">
+                    <span>6</span>
+                    <span>2</span>
+                  </span>
+                  <span class="split-mark">
+                    <span>H</span>
+                    <span>L</span>
+                  </span>
+                </button>
+
+                <button
+                  class="stick-button guidable three"
+                  data-slot="three"
+                  data-focus-target="stick:three"
+                  type="button"
+                  aria-label="3 and 7 position"
+                >
+                  <span class="gear-stack">
+                    <span>7</span>
+                    <span>3</span>
+                  </span>
+                  <span class="split-mark">
+                    <span>H</span>
+                    <span>L</span>
+                  </span>
+                </button>
+
+                <button
+                  class="stick-button guidable four"
+                  data-slot="four"
+                  data-focus-target="stick:four"
+                  type="button"
+                  aria-label="4 and 8 position"
+                >
+                  <span class="gear-stack">
+                    <span>8</span>
+                    <span>4</span>
+                  </span>
+                  <span class="split-mark">
+                    <span>H</span>
+                    <span>L</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
       </section>
     </section>
 
-    <section class="map-panel" aria-label="Forward gear translation">
-      <div class="map-header">
+    <section class="memory-panel" aria-label="Quick memory cues">
+      <article class="memory-card">
+        <h3>Same H Pattern Twice</h3>
+        <p>
+          Low range uses the H pattern once. High range uses the same stick holes again for 5
+          through 8.
+        </p>
+      </article>
+
+      <article class="memory-card">
+        <h3>Splitter Stays in the Same Hole</h3>
+        <p>
+          The splitter is the easy move. Your hand stays in the same stick hole and the truck
+          changes to the higher or lower gear in that hole.
+        </p>
+      </article>
+
+      <article class="memory-card">
+        <h3>Listen for the Engine</h3>
+        <p>
+          Use the RPM readout like engine sound. Too low means it is lugging. Too high means it
+          wants the next gear.
+        </p>
+      </article>
+    </section>
+
+    <details class="advanced-panel">
+      <summary>Advanced view: gear numbers, ratios, and reverse</summary>
+
+      <div class="advanced-top">
         <div>
-          <p class="eyebrow small">Forward Gear Translation</p>
-          <h2>Truck Labels to Trainer Gears</h2>
+          <p class="eyebrow small">Optional Detail</p>
+          <h2>Translation Layer</h2>
         </div>
-        <p class="map-note">
-          The knob keeps the real truck labels. The cards below show how they map to the
-          numbered training display.
+        <p class="section-copy">
+          Beginners do not need this first. Open it when you want the full gear-number mapping
+          and ratio list behind the lesson flow.
         </p>
       </div>
 
+      <div class="advanced-state">
+        <article class="advanced-card">
+          <span>Displayed gear</span>
+          <strong id="advanced-gear">N</strong>
+        </article>
+        <article class="advanced-card">
+          <span>Truck label</span>
+          <strong id="advanced-truck-label">Neutral</strong>
+        </article>
+        <article class="advanced-card">
+          <span>Ratio</span>
+          <strong id="ratio-readout">--</strong>
+        </article>
+        <article class="advanced-card">
+          <span>Stick state</span>
+          <strong id="slot-readout">Neutral</strong>
+        </article>
+      </div>
+
+      <div class="reverse-note">
+        Reverse is still modeled using Eaton's published reverse ratios, but the guided lessons
+        keep beginners focused on forward driving first.
+      </div>
+
       <div class="gear-map" id="gear-map"></div>
-    </section>
+    </details>
   </main>
 
   <script src="game.js"></script>

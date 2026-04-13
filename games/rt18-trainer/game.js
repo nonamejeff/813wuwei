@@ -60,11 +60,6 @@ const START_STATE = {
 };
 
 const state = { ...START_STATE };
-const scene = {
-  roadOffset: 0,
-  wheelRotation: 0,
-  bobPhase: 0,
-};
 
 const elements = {
   throttleSlider: document.getElementById("throttle-slider"),
@@ -92,11 +87,6 @@ const elements = {
   loadReadout: document.getElementById("load-readout"),
   loadUp: document.getElementById("load-up"),
   loadDown: document.getElementById("load-down"),
-  laneStripes: document.querySelector(".lane-stripes"),
-  rigWrap: document.getElementById("rig-wrap"),
-  truckRig: document.getElementById("truck-rig"),
-  loadCars: Array.from(document.querySelectorAll(".nascar-load")),
-  wheels: Array.from(document.querySelectorAll(".wheel")),
 };
 
 const audio = {
@@ -742,9 +732,6 @@ function blowEngine() {
 function resetSim() {
   const muted = state.muted;
   Object.assign(state, START_STATE, { muted });
-  scene.roadOffset = 0;
-  scene.wheelRotation = 0;
-  scene.bobPhase = 0;
   elements.throttleSlider.value = "0";
   elements.blownOverlay.classList.add("is-hidden");
   elements.statusLine.classList.remove("is-alert");
@@ -922,20 +909,6 @@ function updatePhysics(dt) {
   }
 }
 
-function updateScene(dt) {
-  const speed = state.speed;
-  const speedMagnitude = Math.abs(speed);
-  scene.roadOffset -= speed * dt * 18;
-  if (scene.roadOffset <= -118) {
-    scene.roadOffset += 118;
-  } else if (scene.roadOffset >= 118) {
-    scene.roadOffset -= 118;
-  }
-
-  scene.wheelRotation = (scene.wheelRotation + speed * dt * 110) % 360;
-  scene.bobPhase = (scene.bobPhase + dt * (1.4 + speedMagnitude * 0.24 + (state.engineRunning ? state.rpm / 1800 : 0))) % (Math.PI * 2);
-}
-
 function updateToggleState() {
   elements.rangeToggle.dataset.active = state.range;
   elements.splitToggle.dataset.active = state.split;
@@ -989,27 +962,6 @@ function render() {
   setNeedle(elements.speedNeedle, Math.abs(state.speed), 0, 75);
   setNeedle(elements.rpmNeedle, state.rpm, 500, 3000);
 
-  elements.loadCars.forEach((car, index) => {
-    car.classList.toggle("is-hidden", index >= state.loadCars);
-  });
-
-  if (elements.laneStripes) {
-    elements.laneStripes.style.transform = `translateX(${scene.roadOffset}px)`;
-  }
-
-  if (elements.rigWrap) {
-    const bounce = Math.sin(scene.bobPhase) * Math.min(4, Math.abs(state.speed) * 0.1 + (state.engineRunning ? state.rpm / 1200 : 0));
-    elements.rigWrap.style.transform = `translateX(-50%) translateY(${bounce.toFixed(2)}px)`;
-  }
-
-  if (elements.truckRig) {
-    elements.truckRig.style.filter = `drop-shadow(0 ${6 + state.loadCars * 2}px ${10 + state.loadCars * 4}px rgba(0, 0, 0, 0.34))`;
-  }
-
-  elements.wheels.forEach((wheel) => {
-    wheel.style.transform = `rotate(${scene.wheelRotation.toFixed(2)}deg)`;
-  });
-
   if (state.status !== elements.statusLine.textContent) {
     elements.statusLine.textContent = state.status;
   }
@@ -1027,7 +979,6 @@ function frame(time) {
   lastFrameTime = time;
 
   updatePhysics(dt);
-  updateScene(dt);
   updateAudio();
 
   if (statusTimer && time >= statusTimer && !state.blown && state.status !== "REDLINE") {

@@ -35,82 +35,13 @@
       </div>
     </section>
 
-    <section class="scene-row">
-      <article class="scene-panel">
-        <div class="scene-sky">
-          <div class="scene-cloud cloud-one"></div>
-          <div class="scene-cloud cloud-two"></div>
-          <div class="scene-cloud cloud-three"></div>
-        </div>
-        <div class="scene-horizon">
-          <div class="scene-tree tree-one"></div>
-          <div class="scene-tree tree-two"></div>
-          <div class="scene-tree tree-three"></div>
-          <div class="scene-tree tree-four"></div>
-        </div>
-        <div class="scene-road">
-          <div class="lane-stripes">
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
-          <div class="rig-wrap" id="rig-wrap">
-            <div class="truck-rig" id="truck-rig">
-              <div class="cab-body">
-                <span class="cab-roof"></span>
-                <span class="cab-window"></span>
-                <span class="cab-door-line"></span>
-                <span class="cab-grill"></span>
-                <span class="cab-bumper"></span>
-                <span class="cab-mirror"></span>
-                <span class="cab-stack"></span>
-                <span class="cab-number">66</span>
-              </div>
-              <span class="fifth-wheel"></span>
-              <div class="trailer-body">
-                <span class="trailer-stripe"></span>
-                <span class="trailer-door"></span>
-                <span class="trailer-marker"></span>
-                <div class="load-bay" id="load-bay">
-                  <span class="nascar-load car-1 is-hidden">
-                    <span class="car-roof"></span>
-                    <span class="car-window"></span>
-                    <span class="car-spoiler"></span>
-                    <span class="car-number">66</span>
-                  </span>
-                  <span class="nascar-load car-2 is-hidden">
-                    <span class="car-roof"></span>
-                    <span class="car-window"></span>
-                    <span class="car-spoiler"></span>
-                    <span class="car-number">66</span>
-                  </span>
-                  <span class="nascar-load car-3 is-hidden">
-                    <span class="car-roof"></span>
-                    <span class="car-window"></span>
-                    <span class="car-spoiler"></span>
-                    <span class="car-number">66</span>
-                  </span>
-                </div>
-              </div>
-              <span class="wheel wheel-front"></span>
-              <span class="wheel wheel-mid"></span>
-              <span class="wheel wheel-rear"></span>
-            </div>
-          </div>
-        </div>
-      </article>
-
-      <article class="load-panel">
-        <span class="load-caption">Trailer Load</span>
-        <div class="load-counter" id="load-readout">0 NASCARs</div>
-        <div class="load-actions">
-          <button id="load-down" class="nav-button load-button" type="button">Unload</button>
-          <button id="load-up" class="nav-button load-button" type="button">Load</button>
-        </div>
-      </article>
+    <section class="load-row" aria-label="Load control">
+      <span class="load-caption">Load</span>
+      <div class="load-counter" id="load-readout">0 NASCARs</div>
+      <div class="load-actions">
+        <button id="load-down" class="nav-button load-button" type="button">Unload</button>
+        <button id="load-up" class="nav-button load-button" type="button">Load</button>
+      </div>
     </section>
 
     <section class="dash-row">

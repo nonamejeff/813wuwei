@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Eaton 18-Speed Sim - 813 Wu Wei</title>
+  <title>MBM Motorsports 18-Speed Sim - 813 Wu Wei</title>
   <meta
     name="description"
-    content="Private Eaton Fuller 18-speed simulator with a realistic stick layout, range and splitter controls, speedometer, and tachometer."
+    content="Private Eaton Fuller 18-speed simulator with MBM Motorsports-inspired visuals, realistic constraints, analog gauges, and truck sounds."
   />
-  <meta property="og:title" content="Eaton 18-Speed Sim - 813 Wu Wei" />
+  <meta property="og:title" content="MBM Motorsports 18-Speed Sim - 813 Wu Wei" />
   <meta property="og:description" content="Private Eaton Fuller 18-speed simulator." />
   <meta property="og:type" content="website" />
   <meta name="robots" content="noindex, nofollow" />
@@ -19,12 +19,88 @@
   <main class="sim-shell">
     <nav class="page-nav">
       <a href="/">Back</a>
+      <div class="nav-actions">
+        <button id="sound-toggle" class="nav-button" type="button">Sound: On</button>
+        <button id="reset-sim" class="nav-button" type="button">Reset</button>
+      </div>
     </nav>
+
+    <section class="brand-banner" aria-label="MBM Motorsports theme">
+      <div class="brand-lockup">
+        <span class="brand-kicker">MBM Motorsports</span>
+        <strong class="brand-wordmark">18-Speed Truck Sim</strong>
+      </div>
+      <div class="number-plate" aria-hidden="true">
+        <span>66</span>
+      </div>
+    </section>
+
+    <section class="scene-row">
+      <article class="scene-panel">
+        <div class="scene-sky">
+          <div class="scene-cloud cloud-one"></div>
+          <div class="scene-cloud cloud-two"></div>
+          <div class="scene-cloud cloud-three"></div>
+        </div>
+        <div class="scene-horizon">
+          <div class="scene-tree tree-one"></div>
+          <div class="scene-tree tree-two"></div>
+          <div class="scene-tree tree-three"></div>
+          <div class="scene-tree tree-four"></div>
+        </div>
+        <div class="scene-road">
+          <div class="lane-stripes">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="rig-wrap" id="rig-wrap">
+            <div class="truck-rig" id="truck-rig">
+              <div class="cab-body">
+                <span class="cab-window"></span>
+                <span class="cab-number">66</span>
+              </div>
+              <div class="trailer-body">
+                <div class="load-bay" id="load-bay">
+                  <span class="nascar-load car-1 is-hidden"></span>
+                  <span class="nascar-load car-2 is-hidden"></span>
+                  <span class="nascar-load car-3 is-hidden"></span>
+                </div>
+              </div>
+              <span class="wheel wheel-front"></span>
+              <span class="wheel wheel-mid"></span>
+              <span class="wheel wheel-rear"></span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="load-panel">
+        <span class="load-caption">Trailer Load</span>
+        <div class="load-counter" id="load-readout">0 NASCARs</div>
+        <div class="load-actions">
+          <button id="load-down" class="nav-button load-button" type="button">Unload</button>
+          <button id="load-up" class="nav-button load-button" type="button">Load</button>
+        </div>
+      </article>
+    </section>
 
     <section class="dash-row">
       <article class="gauge-card">
         <div class="gauge-face">
+          <div class="gauge-bezel"></div>
           <div class="gauge-arc speed-arc"></div>
+          <div class="gauge-scale">
+            <span class="gauge-mark mark-0">0</span>
+            <span class="gauge-mark mark-1">15</span>
+            <span class="gauge-mark mark-2">30</span>
+            <span class="gauge-mark mark-3">45</span>
+            <span class="gauge-mark mark-4">60</span>
+            <span class="gauge-mark mark-5">75</span>
+          </div>
           <div class="needle" id="speed-needle"></div>
           <div class="gauge-center">
             <strong id="speed-readout">0.0</strong>
@@ -40,13 +116,22 @@
         <div class="gear-status">
           <span id="range-status">Range Low</span>
           <span id="split-status">Split Low</span>
-          <span id="box-status">Box Low</span>
+          <span id="box-status">Forward</span>
         </div>
       </article>
 
       <article class="gauge-card">
         <div class="gauge-face">
+          <div class="gauge-bezel"></div>
           <div class="gauge-arc rpm-arc"></div>
+          <div class="gauge-scale">
+            <span class="gauge-mark mark-0">5</span>
+            <span class="gauge-mark mark-1">10</span>
+            <span class="gauge-mark mark-2">15</span>
+            <span class="gauge-mark mark-3">20</span>
+            <span class="gauge-mark mark-4">25</span>
+            <span class="gauge-mark mark-5 red">30</span>
+          </div>
           <div class="needle" id="rpm-needle"></div>
           <div class="gauge-center">
             <strong id="rpm-readout">650</strong>
@@ -56,120 +141,139 @@
       </article>
     </section>
 
-    <section class="road-row">
+    <section class="status-row">
+      <div class="status-line" id="status-line">READY</div>
+    </section>
+
+    <section class="pedal-row">
+      <div class="pedal-label">Throttle</div>
       <input
-        id="speed-slider"
-        class="speed-slider"
+        id="throttle-slider"
+        class="throttle-slider"
         type="range"
         min="0"
-        max="75"
-        step="0.5"
+        max="100"
+        step="1"
         value="0"
-        aria-label="Road speed"
+        aria-label="Throttle percentage"
       />
+      <div class="pedal-value" id="throttle-readout">0%</div>
     </section>
 
     <section class="control-row">
-      <article class="switch-panel">
-        <div class="toggle-block">
-          <span class="toggle-label">Range</span>
-          <div class="range-toggle" id="range-toggle" data-active="low" aria-label="Range switch">
-            <span class="range-thumb" aria-hidden="true"></span>
-            <button class="toggle-button high" data-control="range" data-value="high" type="button">
-              High
-            </button>
-            <button class="toggle-button low" data-control="range" data-value="low" type="button">
-              Low
-            </button>
-          </div>
-        </div>
-
-        <div class="toggle-block">
-          <span class="toggle-label">Split</span>
-          <div class="split-toggle" id="split-toggle" data-active="low" aria-label="Splitter button">
-            <span class="split-thumb" aria-hidden="true"></span>
-            <button class="toggle-button low" data-control="split" data-value="low" type="button">
-              Low
-            </button>
-            <button class="toggle-button high" data-control="split" data-value="high" type="button">
-              High
-            </button>
-          </div>
-        </div>
-      </article>
-
       <article class="knob-panel">
-        <button id="neutral-button" class="neutral-button" type="button">Neutral</button>
+        <div class="shifter-assembly">
+          <div class="range-pod">
+            <span class="hardware-caption">Range</span>
+            <div class="range-toggle" id="range-toggle" data-active="low" aria-label="Range switch">
+              <span class="range-label range-label-high">HI</span>
+              <span class="range-label range-label-low">LO</span>
+              <span class="range-thumb" aria-hidden="true"></span>
+              <button class="toggle-button high" data-control="range" data-value="high" type="button" aria-label="Range high"></button>
+              <button class="toggle-button low" data-control="range" data-value="low" type="button" aria-label="Range low"></button>
+            </div>
+          </div>
 
-        <div class="knob-face" role="group" aria-label="Eaton 18-speed shifter face">
-          <span class="trace trace-left-vertical"></span>
-          <span class="trace trace-horizontal"></span>
-          <span class="trace trace-center-vertical"></span>
-          <span class="trace trace-right-vertical"></span>
+          <div class="knob-stage">
+            <div class="split-pod">
+              <span class="hardware-caption split-caption">Split</span>
+              <div class="split-toggle" id="split-toggle" data-active="low" aria-label="Splitter button">
+                <span class="split-label split-label-high">HI</span>
+                <span class="split-label split-label-low">LO</span>
+                <span class="split-thumb" aria-hidden="true"></span>
+                <button class="toggle-button high" data-control="split" data-value="high" type="button" aria-label="Split high"></button>
+                <button class="toggle-button low" data-control="split" data-value="low" type="button" aria-label="Split low"></button>
+              </div>
+            </div>
 
-          <button class="stick-button reverse" data-slot="reverse" type="button" aria-label="Reverse position">
-            <span class="reverse-stack">
-              <span>HI</span>
-              <span class="gear-mark">R</span>
-              <span>LO</span>
-            </span>
-          </button>
+            <div class="knob-face" role="group" aria-label="Eaton 18-speed shifter face">
+              <span class="trace trace-left-vertical"></span>
+              <span class="trace trace-horizontal"></span>
+              <span class="trace trace-center-vertical"></span>
+              <span class="trace trace-right-vertical"></span>
 
-          <button class="stick-button low" data-slot="low" type="button" aria-label="Low position">
-            <span class="single-gear">LO</span>
-            <span class="split-mark">
-              <span>H</span>
-              <span>L</span>
-            </span>
-          </button>
+              <button class="stick-button reverse" data-slot="reverse" type="button" aria-label="Reverse position">
+                <span class="reverse-stack">
+                  <span>HI</span>
+                  <span class="gear-mark">R</span>
+                  <span>LO</span>
+                </span>
+              </button>
 
-          <button class="stick-button one" data-slot="one" type="button" aria-label="1 and 5 position">
-            <span class="gear-stack">
-              <span>5</span>
-              <span>1</span>
-            </span>
-            <span class="split-mark">
-              <span>H</span>
-              <span>L</span>
-            </span>
-          </button>
+              <button class="stick-button low" data-slot="low" type="button" aria-label="Low position">
+                <span class="single-gear">LO</span>
+                <span class="split-mark">
+                  <span>H</span>
+                  <span>L</span>
+                </span>
+              </button>
 
-          <button class="stick-button two" data-slot="two" type="button" aria-label="2 and 6 position">
-            <span class="gear-stack">
-              <span>6</span>
-              <span>2</span>
-            </span>
-            <span class="split-mark">
-              <span>H</span>
-              <span>L</span>
-            </span>
-          </button>
+              <button class="stick-button one" data-slot="one" type="button" aria-label="1 and 5 position">
+                <span class="gear-stack">
+                  <span>5</span>
+                  <span>1</span>
+                </span>
+                <span class="split-mark">
+                  <span>H</span>
+                  <span>L</span>
+                </span>
+              </button>
 
-          <button class="stick-button three" data-slot="three" type="button" aria-label="3 and 7 position">
-            <span class="gear-stack">
-              <span>7</span>
-              <span>3</span>
-            </span>
-            <span class="split-mark">
-              <span>H</span>
-              <span>L</span>
-            </span>
-          </button>
+              <button class="stick-button two" data-slot="two" type="button" aria-label="2 and 6 position">
+                <span class="gear-stack">
+                  <span>6</span>
+                  <span>2</span>
+                </span>
+                <span class="split-mark">
+                  <span>H</span>
+                  <span>L</span>
+                </span>
+              </button>
 
-          <button class="stick-button four" data-slot="four" type="button" aria-label="4 and 8 position">
-            <span class="gear-stack">
-              <span>8</span>
-              <span>4</span>
-            </span>
-            <span class="split-mark">
-              <span>H</span>
-              <span>L</span>
-            </span>
-          </button>
+              <button class="stick-button three" data-slot="three" type="button" aria-label="3 and 7 position">
+                <span class="gear-stack">
+                  <span>7</span>
+                  <span>3</span>
+                </span>
+                <span class="split-mark">
+                  <span>H</span>
+                  <span>L</span>
+                </span>
+              </button>
+
+              <button class="stick-button four" data-slot="four" type="button" aria-label="4 and 8 position">
+                <span class="gear-stack">
+                  <span>8</span>
+                  <span>4</span>
+                </span>
+                <span class="split-mark">
+                  <span>H</span>
+                  <span>L</span>
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div class="control-buttons">
+            <button id="neutral-button" class="neutral-button hardware-neutral" type="button">
+              Neutral
+            </button>
+            <button id="start-engine" class="neutral-button start-button is-hidden" type="button">
+              Start
+            </button>
+          </div>
         </div>
       </article>
     </section>
   </main>
+
+  <div class="blown-overlay is-hidden" id="blown-overlay" aria-live="assertive">
+    <div class="blown-card">
+      <p class="blown-kicker">Engine Failure</p>
+      <h1>You just blew up your engine Chris</h1>
+      <button id="rebuild-button" class="rebuild-button" type="button">Rebuild</button>
+    </div>
+  </div>
 
   <script src="game.js"></script>
 </body>
